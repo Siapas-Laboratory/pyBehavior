@@ -50,9 +50,9 @@ class Settings(QMainWindow):
 
 
         # get default map file
-        self.params = np.load('params.npy', allow_pickle = True).item()
-        self.map_file = self.params['map-file']
-
+        self.params, self.map_file, self.mapping = load_mapping()
+        self.mapping = self.mapping.set_index('port')['name'].fillna("")
+        
         # create a drop down menu of available mappings
         self.map_file_select = QComboBox()
         available_mappings = [i.stem for i in Path('port-mappings').iterdir()]
@@ -72,10 +72,7 @@ class Settings(QMainWindow):
         self.header_layout.addWidget(self.save_btn)
         self.layout.addLayout(self.header_layout)
 
-        # load the currently selected map file
-        # TODO: need to wrap this in a try except clause to make sure 'port' is an existing  column
-        # just in case people want to edit the csv in excel
-        self.mapping = pd.read_csv(self.map_file).set_index('port')['name'].fillna("")
+        # fill the body of the window with port labels and inputs for names to assign
         self.fill_body()
         
         self.body_layout.addLayout(self.port_label_layout)
