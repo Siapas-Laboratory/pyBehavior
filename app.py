@@ -48,7 +48,6 @@ class Settings(QMainWindow):
         self.port_label_layout = QVBoxLayout()
         self.del_btns_layout = QVBoxLayout()
 
-
         # get default map file
         self.params, self.map_file, self.mapping = load_mapping()
         self.mapping = self.mapping.set_index('port')['name'].fillna("")
