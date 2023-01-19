@@ -27,7 +27,6 @@ class filenameDialog(QDialog):
         layout.addWidget(self.fname_input)
         layout.addLayout(buttonBox)
         self.setLayout(layout)
-
     
     def check_input(self):
         self.fname = self.fname_input.text()
