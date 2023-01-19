@@ -13,24 +13,26 @@ class BeamThread(QThread):
 
     state_updated = pyqtSignal(object)
 
-    def __init__(self, beam, port):
+    def __init__(self, beam_ports):
         super(BeamThread, self).__init__()
-        self.port = port
-        self.beam = beam
+        self.beam_ports = beam_ports
 
     def run(self):
-        with Task() as task:
-            task.di_channels.add_di_chan(self.port, name_to_assign_to_lines = self.beam)
-            task.timing.cfg_change_detection_timing(rising_edge_chan = self.port, 
-                                                    falling_edge_chan = self.port,
+        with Task() as task:         
+            for beam, port in self.beam_ports.items():
+                task.di_channels.add_di_chan(port, name_to_assign_to_lines = beam)
+            port_str = ', '.join(self.beam_ports.tolist())
+            task.timing.cfg_change_detection_timing(rising_edge_chan = port_str, 
+                                                    falling_edge_chan = port_str,
                                                     sample_mode=constants.AcquisitionType.CONTINUOUS)
             def update_states(task_handle = task._handle, 
                               signal_type = constants.Signal.CHANGE_DETECTION_EVENT,
                               callback_data = 1):
-                self.state_updated.emit(f"{self.beam}\n{task.read()}")
+                self.state_updated.emit(task.read())
+                return 0
             task.register_signal_event(constants.Signal.CHANGE_DETECTION_EVENT, update_states)
             task.start()
-            logging.debug(f"started {self.beam}")
+            logging.debug(f"beam thread started")
             while True:
                 time.sleep(.1)
 
@@ -47,23 +49,42 @@ class MainWindow(QMainWindow):
         _, _, mapping = load_mapping()
         mapping = mapping.set_index('name')['port'].fillna("")
         beam_ports = mapping.loc[mapping.index.str.contains("beam")]
-        beam_threads = {}
+        self.beams = beam_ports.rename('port').to_frame()
+        self.beams['state'] = np.zeros((len(beam_ports),), dtype = bool)
+        self.beam_thread = BeamThread(beam_ports)
+        self.beam_thread.state_updated.connect(self.update_display)
+        self.beam_thread.start()
 
+        layout = QHBoxLayout()
+        beam_buttons = {}
         for beam, port in beam_ports.items():
-            #create GUI element
-            bt = BeamThread(beam, port) # create thread
-            bt.state_updated.connect(self.update_display)
-            beam_threads.update({'beam': bt})
-            bt.start()
+            btn = QPushButton(beam)
+            btn.setStyleSheet("QPushButton"
+                              "{"
+                              "background-color : lightblue;"
+                              "}"
+                              "QPushButton::checked"
+                              "{"
+                              "background-color : red;"
+                              "}")
+            btn.setCheckable(True)
+            layout.addWidget(btn)
+            beam_buttons.update({beam: btn})
+
+        self.beams['button'] = pd.Series(beam_buttons)
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
 
     def update_display(self, data):
+        prev = self.beams.state.values
+        changed = np.where(prev != data)[0]
+        for c in changed:
+            self.beams['button'].iloc[c].toggle()
+        self.beams['state'] = data
+        logging.debug(prev)
         logging.debug(data)
-        # given which beam has been affected update the appropriate GUI element
-
-
-
-        # we need to acquire one sample at a time from all beam channels
-        # compare the state to the current state and if it is different update the gui element
+        
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
