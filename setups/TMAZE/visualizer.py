@@ -31,8 +31,8 @@ class TMAZEVis(SetupVis):
         self.beams.loc[sleep_arm, 'arm'] = "sleep"
 
         self.beam_thread = DIChanThread(beam_ports)
-        self.beam_thread.state_updated.connect(self.update_display)
-        self.beam_thread.start()
+        self.beam_thread.state_updated.connect(self.register_state_change)
+        
         beam_buttons = {}
         vlayout = QVBoxLayout()
         for beam in sleep_arm:
@@ -90,9 +90,10 @@ class TMAZEVis(SetupVis):
             beam_buttons.update({beam: btn})
     
         self.beams['button'] = pd.Series(beam_buttons)
+        self.beam_thread.start()
         self.layout.addLayout(vlayout)
 
-    def update_display(self, data):
+    def register_state_change(self, data):
         prev = self.beams.state.values
         changed = np.where(prev != data)[0]
         for c in changed:
