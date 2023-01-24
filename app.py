@@ -1,10 +1,12 @@
 
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QDialog, QListWidget, QDialogButtonBox, QScrollArea
+from PyQt5.QtCore import Qt
 import numpy as np
 import pandas as pd
 from utils import *
 from pathlib import Path
+import nidaqmx
 
 
 class filenameDialog(QDialog):
@@ -42,13 +44,11 @@ class Settings(QMainWindow):
         # create layout elements
         self.layout = QVBoxLayout()
         self.header_layout = QHBoxLayout()
-        self.body_layout = QHBoxLayout()
-        self.name_input_layout = QVBoxLayout()
-        self.port_label_layout = QVBoxLayout()
-        self.del_btns_layout = QVBoxLayout()
 
         # get default map file
-        self.params, self.map_file, self.mapping = load_mapping()
+        self.params = np.load('params.npy', allow_pickle = True).item()
+        self.map_file = self.params['prev_edited']
+        self.mapping = pd.read_csv(self.map_file)
         self.mapping = self.mapping.set_index('port')['name'].fillna("")
         
         # create a drop down menu of available mappings
@@ -71,12 +71,26 @@ class Settings(QMainWindow):
         self.layout.addLayout(self.header_layout)
 
         # fill the body of the window with port labels and inputs for names to assign
+        self.body_layout = QHBoxLayout()
+        self.name_input_layout = QVBoxLayout()
+        self.port_label_layout = QVBoxLayout()
+        self.del_btns_layout = QVBoxLayout()
         self.fill_body()
-        
         self.body_layout.addLayout(self.port_label_layout)
         self.body_layout.addLayout(self.name_input_layout)
         self.body_layout.addLayout(self.del_btns_layout)
-        self.layout.addLayout(self.body_layout)
+        self.body_widget = QWidget()       
+        self.body_widget.setLayout(self.body_layout)
+        # make it scrollable
+        self.scroll = QScrollArea() 
+        self.scroll.setWidget(self.body_widget)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setWidgetResizable(True)
+
+        #add the widget
+        self.layout.addWidget(self.scroll)
+
 
         #TODO: need a button to add ports
         # make sure its not possible to add an already listed port
@@ -122,8 +136,20 @@ class Settings(QMainWindow):
         self.mapping.to_frame().to_csv(self.map_file)
     
     def create(self):
-        new_mapping = pd.read_csv('port-mappings/blank.csv').set_index('port')['name'].fillna("")
-        new_mapping.loc[:] = ""
+        # new_mapping = pd.read_csv('port-mappings/blank.csv').set_index('port')['name'].fillna("")
+        # use 
+        try:
+            system = nidaqmx.system.System.local()
+            channels = []
+            for dev in system.devices:
+                # get some list of all channels on this device
+                # channels.extend(...)
+                continue
+            new_mapping = pd.Series([""]* len(channels), index = channels)
+        except nidaqmx._lib.DaqNotFoundError: # for debugging purposes if not running on the machine itself
+            new_mapping = pd.read_csv('port-mappings/blank.csv').set_index('port')['name'].fillna("")
+            new_mapping.loc[:] = ""
+
         dialog = filenameDialog()
         dialog.exec_()
 
@@ -141,7 +167,7 @@ class Settings(QMainWindow):
             self.del_btns[i].deleteLater()
 
         self.map_file = f'port-mappings/{str(self.map_file_select.currentText())}.csv'
-        self.params['map-file'] = self.map_file
+        self.params['prev_edited'] = self.map_file
         np.save('params.npy', self.params)
         self.mapping = pd.read_csv(self.map_file).set_index('port')['name'].fillna("")
         self.fill_body()        
@@ -155,9 +181,29 @@ class Settings(QMainWindow):
 
 
 
-class Protocols(QMainWindow):
+class SetupDialog(QDialog):
     def __init__(self):
-        super(Protocols, self).__init__()
+        super(SetupDialog, self).__init__()
+        setups = [x.name for x in Path('setups').iterdir() if x.is_dir()]
+
+        layout = QVBoxLayout()
+        self.setup_select = QListWidget()
+        self.setup_select.addItems(setups)
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout.addWidget(self.setup_select)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+    
+
+
+
+        
+
 
 class MainWindow(QMainWindow):
 
@@ -166,18 +212,17 @@ class MainWindow(QMainWindow):
 
         # create settings button
         self.setWindowTitle("My App")
-        self.settings_btn = QPushButton("settings")
+        self.settings_btn = QPushButton("Edit Mappings")
         self.settings_dialog = Settings() # instantiate settings dialog window
         self.settings_btn.clicked.connect(self.open_settings_dialog)
 
 
-        self.protocols_btn = QPushButton("protocols")
-        self.protocols_dialog = Protocols() # instantiate protocols dialog window
-        self.protocols_btn.clicked.connect(self.open_protocols_dialog)
+        self.setup_btn = QPushButton("Select Setup")
+        self.setup_btn.clicked.connect(self.open_setup_dialog)
 
         layout = QVBoxLayout()
         layout.addWidget(self.settings_btn)
-        layout.addWidget(self.protocols_btn)
+        layout.addWidget(self.setup_btn)
 
         container = QWidget()
         container.setLayout(layout)
@@ -187,8 +232,19 @@ class MainWindow(QMainWindow):
     def open_settings_dialog(self):
         self.settings_dialog.show()
 
-    def open_protocols_dialog(self):
-        self.protocols_dialog.show()
+    def open_setup_dialog(self):
+        dialog = SetupDialog()
+        dialog.exec_()
+        # should check if they clicked ok first
+        setup = dialog.setup_select.currentItem().text()
+        import importlib
+        params = np.load(Path('setups')/setup/'params.npy', allow_pickle=True).item()
+        setup_mod = importlib.import_module(f'setups.{setup}.visualizer')
+        Visualizer = getattr(setup_mod, params['vis-name'])
+        self.visualizer = Visualizer()
+        self.visualizer.show()
+        # given the selected setup should open the appropriate visualizer
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
