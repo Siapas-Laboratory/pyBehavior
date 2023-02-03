@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
         params = np.load(Path('setups')/setup/'params.npy', allow_pickle=True).item()
         setup_mod = importlib.import_module(f'setups.{setup}.visualizer')
         Visualizer = getattr(setup_mod, params['vis-name'])
-        self.visualizer = Visualizer()
+        self.visualizer = Visualizer((Path('setups')/setup).as_posix())
         self.visualizer.show()
         # given the selected setup should open the appropriate visualizer
 
