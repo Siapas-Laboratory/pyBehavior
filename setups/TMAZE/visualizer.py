@@ -32,6 +32,9 @@ class ValveControl(QWidget):
         vlayout.addWidget(pulse_btn)
         vlayout.addWidget(pulse_multiple)
         self.setLayout(vlayout)
+        #TODO: need small pulse button, small pulse fraction, and option to adjust number of pulses
+        # ideally TMAZEVis should also keep track of these settings so when it calls trigger_reward it knows the correct parameters for each valve
+        # should these settings be saved as well? both in results and as defaults?
 
         
 
@@ -82,7 +85,7 @@ class TMAZEVis(SetupVis):
 
         hlayout = QHBoxLayout()
 
-        for beam in left_arm[::-1] + right_arm:
+        for beam in right_arm[::-1] + left_arm:
             btn = QPushButton(beam)
             btn.setFixedSize(100, 100)
             btn.setStyleSheet("""
@@ -121,6 +124,10 @@ class TMAZEVis(SetupVis):
         self.beams['button'] = pd.Series(beam_buttons)
         self.beam_thread.start()
         self.layout.addLayout(vlayout)
+
+    def trigger_reward(self, port, typ = 'full'):
+        # get the appropriate pulse duration for this port
+        print(f"pulsing port {port}, {typ}")
 
     def register_state_change(self, data):
         if self.running:

@@ -52,9 +52,12 @@ class SetupVis(QMainWindow):
         self.start_btn.clicked.connect(self.start_protocol)
 
         self.stop_btn = QPushButton("stop")
+        self.stop_btn.clicked.connect(self.stop_protocol)
         # need a start and stop button
 
         self.menu_layout.addWidget(self.prot_select)
+        self.menu_layout.addWidget(self.start_btn)
+        self.menu_layout.addWidget(self.stop_btn)
         self.menu_layout.addWidget(self.map_select)
         self.layout.addLayout(self.menu_layout)
 
@@ -65,7 +68,7 @@ class SetupVis(QMainWindow):
 
     def start_protocol(self):
         if not self.running:
-            if len(self.prot_select.currentText()>0):
+            if len(self.prot_select.currentText())>0:
                 self.running = True
                 # TODO: need a file dialog to create a file to save the data to
             else:
@@ -102,9 +105,11 @@ class SetupVis(QMainWindow):
             import importlib
             setup_mod = importlib.import_module(prot.replace('/','.'))
             state_machine = getattr(setup_mod, "TMAZE") # need to fix this line
-            self.state_machine = state_machine()
+            self.state_machine = state_machine(self)
         else:
             self.state_machine = None
+
+
 
 class DIChanThread(QThread):
 
@@ -116,9 +121,9 @@ class DIChanThread(QThread):
 
     def run(self):
         with Task() as task:         
-            for name, port in self.beam_ports.items():
+            for name, port in self.ports.items():
                 task.di_channels.add_di_chan(port, name_to_assign_to_lines = name)
-            port_str = ', '.join(self.beam_ports.tolist())
+            port_str = ', '.join(self.ports.tolist())
             task.timing.cfg_change_detection_timing(rising_edge_chan = port_str, 
                                                     falling_edge_chan = port_str,
                                                     sample_mode = constants.AcquisitionType.CONTINUOUS)
