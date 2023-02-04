@@ -53,6 +53,9 @@ class TMAZE(StateMachine):
         super(TMAZE, self).__init__()
         self.target = None
         self.init = False
+        self.beams = pd.Series({'beam9': self.beamA, 
+                                'beam16': self.beamB, 
+                                'beam17': self.beamS })
 
 
     def correct_trial(self, event_data):
@@ -83,4 +86,7 @@ class TMAZE(StateMachine):
         pass
 
     def handle_input(self, prev, current):
-        pass
+        change = prev != current
+        change = change.loc[self.beams.index]
+        if change.any():
+            self.beams[change.index[change][0]]()

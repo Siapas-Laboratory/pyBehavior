@@ -61,6 +61,8 @@ class SetupVis(QMainWindow):
         container.setLayout(self.layout)
         self.setCentralWidget(container)
 
+        self.state_machine = None
+
     def start_protocol(self):
         if not self.running:
             if len(self.prot_select.currentText()>0):
@@ -94,11 +96,15 @@ class SetupVis(QMainWindow):
     
     def change_protocol(self):
         # import and create the statemachine
-        prot = (self.loc/'protocols'/self.prot_select.currentText()).as_posix()
-        import importlib
-        setup_mod = importlib.import_module(prot.replace('/','.'))
-        state_machine = getattr(setup_mod, "TMAZE") # need to fix this line
-        self.state_machine = state_machine()
+        prot_name = self.prot_select.currentText()
+        if len(prot_name)>0:
+            prot = (self.loc/'protocols'/prot_name).as_posix()
+            import importlib
+            setup_mod = importlib.import_module(prot.replace('/','.'))
+            state_machine = getattr(setup_mod, "TMAZE") # need to fix this line
+            self.state_machine = state_machine()
+        else:
+            self.state_machine = None
 
 class DIChanThread(QThread):
 
@@ -106,7 +112,7 @@ class DIChanThread(QThread):
 
     def __init__(self, ports):
         super(DIChanThread, self).__init__()
-        self.beam_ports = ports
+        self.ports = ports
 
     def run(self):
         with Task() as task:         
@@ -115,11 +121,12 @@ class DIChanThread(QThread):
             port_str = ', '.join(self.beam_ports.tolist())
             task.timing.cfg_change_detection_timing(rising_edge_chan = port_str, 
                                                     falling_edge_chan = port_str,
-                                                    sample_mode=constants.AcquisitionType.CONTINUOUS)
+                                                    sample_mode = constants.AcquisitionType.CONTINUOUS)
             def update_states(task_handle = task._handle, 
                               signal_type = constants.Signal.CHANGE_DETECTION_EVENT,
                               callback_data = 1):
-                self.state_updated.emit(task.read())
+                data = pd.Series(task.read(), index = self.ports.index)
+                self.state_updated.emit(data)
                 return 0
             task.register_signal_event(constants.Signal.CHANGE_DETECTION_EVENT, update_states)
             task.start()
