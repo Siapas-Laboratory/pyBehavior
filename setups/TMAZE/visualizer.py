@@ -1,47 +1,15 @@
-from nidaqmx import constants, Task
 import logging
-import matplotlib.pyplot as plt
-import time
-
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
 import sys
-
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QDialog, QRadioButton
+from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout
 sys.path.append("../")
 from utils import *
 
 
-class ValveControl(QWidget):
-    def __init__(self, port, valve_name):
-        super(ValveControl, self).__init__()
-        vlayout= QVBoxLayout()
-        valve_label = QLabel(valve_name)
-        vlayout.addWidget(valve_label)
-        hlayout = QHBoxLayout()
-        dur_label = QLabel("Pulse Duration (ms)")
-        dur = QLineEdit()
-        hlayout.addWidget(dur_label)
-        hlayout.addWidget(dur)
-        open_btn = QPushButton("Open")
-        close_btn = QPushButton("Close")
-        pulse_btn = QPushButton("Pulse")
-        pulse_multiple = QPushButton("Pulse Many")
-        vlayout.addLayout(hlayout)
-        vlayout.addWidget(open_btn)
-        vlayout.addWidget(close_btn)
-        vlayout.addWidget(pulse_btn)
-        vlayout.addWidget(pulse_multiple)
-        self.setLayout(vlayout)
-        #TODO: need small pulse button, small pulse fraction, and option to adjust number of pulses
-        # ideally TMAZEVis should also keep track of these settings so when it calls trigger_reward it knows the correct parameters for each valve
-        # should these settings be saved as well? both in results and as defaults?
 
-        
+class TMAZE(SetupVis):
 
-class TMAZEVis(SetupVis):
-
-    def __init__(self, loc):
-        super(TMAZEVis, self).__init__(loc)
+    def __init__(self):
+        super(TMAZE, self).__init__(Path(__file__).parent.resolve())
         self.buildUI()
 
     def buildUI(self):
@@ -59,19 +27,22 @@ class TMAZEVis(SetupVis):
         self.beams.loc[bottom_arm, 'arm'] = "bottom"
         self.beams.loc[sleep_arm, 'arm'] = "sleep"
 
-        self.beam_thread = DIChanThread(beam_ports)
-        self.beam_thread.state_updated.connect(self.register_state_change)
-        
-        beam_buttons = {}
+        # self.beam_thread = DIChanThread(beam_ports)
+        # self.beam_thread.state_updated.connect(self.register_state_change)
         vlayout = QVBoxLayout()
         stem_valve = ValveControl(self.mapping.loc['juicer_valve2'], 'juicer_valve2')
         vlayout.addWidget(stem_valve)
-        for beam in bottom_arm:
+        hlayout = QHBoxLayout()
+        b_valve = ValveControl(self.mapping.loc['juicer_valve3'], 'juicer_valve3')
+        hlayout.addWidget(b_valve)
+        grid = QGridLayout()
+        beam_buttons = {}
+        for i, beam in enumerate(bottom_arm):
             btn = QPushButton(beam)
-            btn.setFixedSize(100, 100)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             btn.setStyleSheet("""
             QPushButton {
-                border-radius : 50;  
+                border-radius : 1em;  
                 border : 2px solid black 
             }
             QPushButton::checked { 
@@ -80,17 +51,17 @@ class TMAZEVis(SetupVis):
             """
             )
             btn.setCheckable(True)
-            vlayout.addWidget(btn, alignment = Qt.AlignHCenter)
+            grid.addWidget(btn, i, 8)
             beam_buttons.update({beam: btn})
 
-        hlayout = QHBoxLayout()
-
-        for beam in right_arm[::-1] + left_arm:
+        for i,beam in enumerate(right_arm[::-1] + [''] + left_arm):
+            if beam == '':
+                continue
             btn = QPushButton(beam)
-            btn.setFixedSize(100, 100)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             btn.setStyleSheet("""
             QPushButton {
-                border-radius : 50;  
+                border-radius : 1em;  
                 border : 2px solid black 
             }
             QPushButton::checked { 
@@ -99,16 +70,15 @@ class TMAZEVis(SetupVis):
             """
             )
             btn.setCheckable(True)
-            hlayout.addWidget(btn, alignment = Qt.AlignVCenter)
+            grid.addWidget(btn, 10, i)
             beam_buttons.update({beam: btn})
         
-        vlayout.addLayout(hlayout)
         for beam in sleep_arm:
             btn = QPushButton(beam)
-            btn.setFixedSize(100, 100)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             btn.setStyleSheet("""
             QPushButton {
-                border-radius : 50;  
+                border-radius : 1em;  
                 border : 2px solid black 
             }
             QPushButton::checked { 
@@ -117,12 +87,16 @@ class TMAZEVis(SetupVis):
             """
             )
             btn.setCheckable(True)
-            vlayout.addWidget(btn, alignment = Qt.AlignHCenter)
+            grid.addWidget(btn, 11+i, 8)
             beam_buttons.update({beam: btn})
         
     
         self.beams['button'] = pd.Series(beam_buttons)
-        self.beam_thread.start()
+        hlayout.addLayout(grid)
+        a_valve = ValveControl(self.mapping.loc['juicer_valve1'], 'juicer_valve1')
+        hlayout.addWidget(a_valve)
+        vlayout.addLayout(hlayout)
+        # self.beam_thread.start()
         self.layout.addLayout(vlayout)
 
     def trigger_reward(self, port, typ = 'full'):
@@ -140,9 +114,3 @@ class TMAZEVis(SetupVis):
         logging.debug(prev)
         logging.debug(data)
     
-    def remap(self):
-        # need to delete all ui elements then rerun buildUI
-        pass
-    
-    def validate_map(self, map_file):
-        return True

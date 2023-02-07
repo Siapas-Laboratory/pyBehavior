@@ -6,7 +6,7 @@ sys.path.append("../")
 from utils import *
 
 
-class TMAZE(StateMachine):
+class tmaze_alternation(StateMachine):
 
     sleep = State("sleep", initial=True)
     stem_reward= State("stem_reward")
