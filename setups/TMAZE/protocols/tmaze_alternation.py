@@ -67,10 +67,6 @@ class tmaze_alternation(StateMachine):
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
                                 'beam17': self.beamS })
-
-        self.valves = pd.Series({'a': 'juicer_valve1', 
-                                 's': 'juicer_valve2', 
-                                 'b': 'juicer_valve3'})
         self.parent = parent
 
 
@@ -98,16 +94,16 @@ class tmaze_alternation(StateMachine):
             print(f"new target is {self.target}")
 
     def deliver_reward(self):
-        print(f"triggering reward on arm {self.current_state.id[0]}")
-        self.parent.trigger_reward(self.valves[self.current_state.id[0]], 'full')
+        valve = self.current_state.id[0]
+        print(f"triggering reward to valve {valve}")
+        self.parent.trigger_reward(valve, 'full')
 
 
     def deliver_small_reward(self):
-        print(f"triggering small reward on arm {self.current_state.id[0]}")
-        self.parent.trigger_reward(self.valves[self.current_state.id[0]], 'small')
+        valve = self.current_state.id[0]
+        print(f"triggering small reward on arm {valve}")
+        self.parent.trigger_reward(valve, 'small')
 
-    def handle_input(self, prev, current):
-        change = (prev != current) & current
-        change = change.loc[self.beams.index]
-        if change.any():
-            self.beams[change.index[change][0]]()
+    def handle_input(self, dg_input):
+        if dg_input in self.beams.index:
+            self.beams[dg_input]()
