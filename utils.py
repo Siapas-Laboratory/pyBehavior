@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from nidaqmx import constants, Task
 from nidaqmx import CtrTime
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QSpinBox
 from PyQt5.QtGui import  QDoubleValidator
 import logging
@@ -29,10 +29,12 @@ class SetupVis(QMainWindow):
 
         self.start_btn = QPushButton("start")
         self.start_btn.setCheckable(True)
+        self.start_btn.setEnabled(False)
         self.running = False
         self.start_btn.clicked.connect(self.start_protocol)
 
         self.stop_btn = QPushButton("stop")
+        self.stop_btn.setEnabled(False)
         self.stop_btn.clicked.connect(self.stop_protocol)
 
         self.menu_layout.addWidget(self.prot_select)
@@ -44,39 +46,56 @@ class SetupVis(QMainWindow):
         self.setCentralWidget(container)
 
         self.state_machine = None
-        self.buffer = {}
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.save)
 
     def start_protocol(self):
-        if not self.running:
-            if len(self.prot_select.currentText())>0:
-                self.running = True
-                # TODO: need a file dialog to create a file to save the data to
-            else:
-                self.start_btn.toggle()
-        else:
-            self.stop_protocol()
+        self.buffer = {}
+        self.filename = "tmp.csv"  # TODO: need a file dialog to create a file to save the data to
+        self.timer.start(1000)
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.running = True
+        self.prot_select.setEnabled(False)
+
+
 
     def stop_protocol(self):
         self.running = False
-        if self.start_btn.isChecked():
-            self.start_btn.toggle()
+        self.timer.stop()
+        self.save()
+        self.start_btn.setEnabled(True)
+        self.start_btn.toggle()
+        self.prot_select.setEnabled(True)
+        self.stop_btn.setEnabled(False)
 
     def change_protocol(self):
         # import and create the statemachine
         prot_name = self.prot_select.currentText()
         if len(prot_name)>0:
-            prot = (self.loc/'protocols'/prot_name).as_posix()
+            self.start_btn.setEnabled(True)
+            prot = (Path("setups")/self.loc.name/'protocols'/prot_name).as_posix()
+            print(prot.replace('/','.'))
             import importlib
             setup_mod = importlib.import_module(prot.replace('/','.'))
             state_machine = getattr(setup_mod, prot_name)
             self.state_machine = state_machine(self)
         else:
             self.state_machine = None
+            self.start_btn.setEnabled(False)
 
     def log(self, event):
         self.buffer.update({datetime.now(): event})
-        print(self.buffer)
 
+
+    def save(self):
+        buff = pd.Series(self.buffer).rename('event').to_frame()
+        data = pd.read_csv(self.filename, index_col = 0)
+        data = pd.concat((buff, data), axis=0)
+        print(data)
+        data.to_csv(self.filename)
+        self.buffer = {}
 
 class DIChanThread(QThread):
 
@@ -148,8 +167,7 @@ class ValveControl(QWidget):
         small_pulse_layout = QHBoxLayout()
         small_pulse_edit_label = QLabel("Small Pulse Fraction")
         self.small_pulse_frac = QLineEdit()
-        only_frac = QDoubleValidator()
-        only_frac.setRange(0,1)
+        only_frac = QDoubleValidator(0.,1., 6, notation = QDoubleValidator.StandardNotation)
         self.small_pulse_frac.setText("0.6")
         self.small_pulse_frac.setValidator(only_frac) # this doesn't seem to be working for some reason
         small_pulse_btn = QPushButton("Small Pulse")

@@ -61,7 +61,7 @@ class tmaze_alternation(StateMachine):
 
 
     def __init__(self, parent):
-        super(TMAZE, self).__init__()
+        super(tmaze_alternation, self).__init__()
         self.target = None
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
