@@ -3,7 +3,7 @@ import pandas as pd
 from nidaqmx import constants, Task
 from nidaqmx import CtrTime
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QSpinBox
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QSpinBox, QFileDialog
 from PyQt5.QtGui import  QDoubleValidator
 import logging
 from pathlib import Path
@@ -17,7 +17,6 @@ class SetupVis(QMainWindow):
         mapping = pd.read_csv(self.loc/'port_map.csv')
         self.mapping = mapping.set_index('name')['port'].fillna("")
 
-        # validate the mapping here
         container = QWidget()
         self.layout = QVBoxLayout()
         self.menu_layout = QHBoxLayout()
@@ -52,7 +51,8 @@ class SetupVis(QMainWindow):
 
     def start_protocol(self):
         self.buffer = {}
-        self.filename = "tmp.csv"  # TODO: need a file dialog to create a file to save the data to
+        dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
+        self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")  # TODO: need a file dialog to create a file to save the data to
         self.timer.start(1000)
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
@@ -91,9 +91,11 @@ class SetupVis(QMainWindow):
 
     def save(self):
         buff = pd.Series(self.buffer).rename('event').to_frame()
-        data = pd.read_csv(self.filename, index_col = 0)
-        data = pd.concat((buff, data), axis=0)
-        print(data)
+        if self.filename.exists():
+            data = pd.read_csv(self.filename, index_col = 0)
+            data = pd.concat((buff, data), axis=0)
+        else:
+             data = buff
         data.to_csv(self.filename)
         self.buffer = {}
 

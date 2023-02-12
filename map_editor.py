@@ -86,9 +86,8 @@ class Settings(QMainWindow):
         #add the widget
         self.layout.addWidget(self.scroll)
 
-        #TODO: need a button to add ports
-        # make sure its not possible to add an already listed port
-        # also make sure the port exists?
+        #TODO: need to reformat this. the lineedits are not in line with the labels
+
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -136,10 +135,9 @@ class Settings(QMainWindow):
             system = nidaqmx.system.System.local()
             channels = []
             for dev in system.devices:
-                # get some list of all channels on this device
-                # channels.extend(...)
-                continue
-            new_mapping = pd.Series([""]* len(channels), index = channels)
+                channels += [i.name for i in dev.di_lines] + [i.name for i in dev.do_lines] + [i.name for i in dev.ai_physical_chans] + [i.name for i in dev.ao_physical_chans]
+            channels = np.unique(channels)
+            new_mapping = pd.Series([""]* len(channels), index = pd.Index(channels, name = "port")).rename("name")
         except nidaqmx._lib.DaqNotFoundError: # for debugging purposes if not running on the machine itself
             new_mapping = pd.read_csv('port-mappings/blank.csv').set_index('port')['name'].fillna("")
             new_mapping.loc[:] = ""

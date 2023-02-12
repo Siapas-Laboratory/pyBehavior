@@ -79,7 +79,10 @@ class tmaze_alternation(StateMachine):
         if self.target is None:
             return False
         else:
-            return self.target != event_data.target.id[0]
+            incorrect = self.target != event_data.target.id[0]
+            if incorrect:
+                self.parent.log(f"arm {event_data.target.id[0]} incorrect")
+            return incorrect
     
     def toggle_target(self, event_data):
         if "small" in event_data.target.id:
@@ -94,15 +97,15 @@ class tmaze_alternation(StateMachine):
             print(f"new target is {self.target}")
 
     def deliver_reward(self):
-        valve = self.current_state.id[0]
-        print(f"triggering reward to valve {valve}")
-        self.parent.trigger_reward(valve, 'full')
+        arm = self.current_state.id[0]
+        self.parent.log(f"arm {arm} correct")
+        self.parent.trigger_reward(arm, 'full')
 
 
     def deliver_small_reward(self):
-        valve = self.current_state.id[0]
-        print(f"triggering small reward on arm {valve}")
-        self.parent.trigger_reward(valve, 'small')
+        arm = self.current_state.id[0]
+        self.parent.log(f"arm {arm} correct but initially incorrect")
+        self.parent.trigger_reward(arm, 'small')
 
     def handle_input(self, dg_input):
         if dg_input in self.beams.index:
