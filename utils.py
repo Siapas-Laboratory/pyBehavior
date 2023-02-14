@@ -93,7 +93,7 @@ class SetupVis(QMainWindow):
         buff = pd.Series(self.buffer).rename('event').to_frame()
         if self.filename.exists():
             data = pd.read_csv(self.filename, index_col = 0)
-            data = pd.concat((buff, data), axis=0)
+            data = pd.concat(( data, buff), axis=0)
         else:
              data = buff
         data.to_csv(self.filename)
@@ -196,23 +196,19 @@ class ValveControl(QWidget):
             task.do_channels.add_do_chan(bleed_port1)
             task.do_channels.add_do_chan(bleed_port2)
             task.do_channels.add_do_chan(self.port)
-            task.write([True, True, False, False, True])
+            task.write([True, True, False, False, True], auto_start = True)
 
     def pulse(self):
         if not self.valve_in_use:
             self.valve_in_use = True
-            self.parent.log(f"{self.valve_name} open")
-            pulse_valve(self.port, float(self.dur.text()))
-            self.parent.log(f"{self.valve_name} close")
+            pulse_valve(self.port, float(self.dur.text()),  valve_name = self.valve_name, parent = self.parent)
             self.valve_in_use = False
 
 
     def small_pulse(self):
         if not self.valve_in_use:
             self.valve_in_use = True
-            self.parent.log(f"{self.valve_name} open")
-            pulse_valve(self.port, float(self.small_pulse_frac.text()) * float(self.dur.text()))
-            self.parent.log(f"{self.valve_name} close")
+            pulse_valve(self.port, float(self.small_pulse_frac.text()) * float(self.dur.text()),  valve_name = self.valve_name, parent = self.parent)
             self.valve_in_use = False
         pass
 
@@ -220,9 +216,8 @@ class ValveControl(QWidget):
         if not self.valve_in_use:
             self.valve_in_use = True
             for _ in range(self.pulse_mult_num.value()):
-                self.parent.log(f"{self.valve_name} open")
-                pulse_valve(self.port, float(self.dur.text()))
-                self.parent.log(f"{self.valve_name} close")
+                pulse_valve(self.port, float(self.dur.text()), valve_name = self.valve_name,  parent = self.parent)
+                time.sleep(.1)
 
             self.valve_in_use = False
 
@@ -230,7 +225,7 @@ class ValveControl(QWidget):
         if not self.valve_in_use:
             with Task() as task:
                 task.do_channels.add_do_chan(self.port)
-                task.write(False)
+                task.write(False, auto_start = True)
                 self.parent.log(f"{self.valve_name} open")
             self.valve_in_use = False
         return
@@ -239,7 +234,7 @@ class ValveControl(QWidget):
         if not self.valve_in_use:
             with Task() as task:
                 task.do_channels.add_do_chan(self.port)
-                task.write(True)
+                task.write(True, auto_start = True)
                 self.parent.log(f"{self.valve_name} close")
             self.valve_in_use = False
         return
@@ -249,13 +244,23 @@ class ValveControl(QWidget):
 
 
 
-def pulse_valve(port, dur):
+def pulse_valve(port, dur, valve_name = "", parent = None):
     print("opening valve")
     #TODO: actually pulse the valve
-    with Task() as task:
-        task.do_channels.add_do_chan(port)
-        task.write(False)
-        print(dur)
-        time.sleep(dur/1000.)
-        task.write(True)
-        task.wait_until_done()
+    if parent is None:
+        with Task() as task:
+            task.do_channels.add_do_chan(port)
+            task.write(False, auto_start = True)
+            time.sleep(dur/1000.)
+            task.write(True, auto_start = True)
+            task.wait_until_done()
+    else:
+        with Task() as task:
+            task.do_channels.add_do_chan(port)
+            task.write(False, auto_start = True)
+            task.wait_until_done()
+            parent.log(f"port {valve_name} open")
+            time.sleep(dur/1000.)
+            task.write(True, auto_start = True)
+            task.wait_until_done()
+            parent.log(f"port {valve_name} closed")
