@@ -217,7 +217,7 @@ class ValveControl(QWidget):
             self.valve_in_use = True
             for _ in range(self.pulse_mult_num.value()):
                 pulse_valve(self.port, float(self.dur.text()), valve_name = self.valve_name,  parent = self.parent)
-                time.sleep(.1)
+                time.sleep(.2)
 
             self.valve_in_use = False
 
