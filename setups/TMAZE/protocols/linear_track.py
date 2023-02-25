@@ -28,14 +28,53 @@ class linear_track(StateMachine):
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA})
         self.parent = parent
+        self.tracker = linear_tracker()
+        self.tracker.show()
+
 
 
     def deliver_reward(self):
         arm = self.current_state.id[0]
         self.parent.log(f"arm {arm} correct")
         self.parent.trigger_reward(arm, 'full')
+        self.tracker.current_trial_start = datetime.now()
+        self.tracker.tot_laps_n += 1
+        self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n%2}")
 
 
     def handle_input(self, dg_input):
         if dg_input in self.beams.index:
             self.beams[dg_input]()
+
+class linear_tracker(QMainWindow):
+    def __init__(self):
+        super(linear_tracker, self).__init__()
+        self.layout = QVBoxLayout()
+
+        self.tot_laps = QLabel(f"Total Laps: 0")
+        self.tot_laps_n = 0   
+
+        self.exp_time = QLabel(f"Experiment Time: 0.00 s")
+        self.current_trial_time = QLabel(f"Current Trial Time: 0.00 s")
+
+        self.t_start = datetime.now()
+        self.current_trial_start = datetime.now()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_time)
+        
+        self.layout.addWidget(self.tot_laps)
+        self.layout.addWidget(self.exp_time)
+        self.layout.addWidget(self.current_trial_time)
+
+        container = QWidget()
+        container.setLayout(self.layout)
+        self.setCentralWidget(container)
+
+        self.timer.start(1000)
+
+    def update_time(self):
+        self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
+        self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
+
+        
+

@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from nidaqmx import constants, Task
-from nidaqmx import CtrTime
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QSpinBox, QFileDialog
 from PyQt5.QtGui import  QDoubleValidator
@@ -9,8 +8,19 @@ import logging
 from pathlib import Path
 import time
 from datetime import datetime
+import importlib
 
 class SetupVis(QMainWindow):
+    """
+    base class for all setup visualizers
+    includes a dropdown menu at the top of the window for selecting a protocol
+    as well as a start and stop button. upon selecting a protocol an instance of
+    the corresponding statemachine will be created. pressing the start button opens
+    a filedialog to select a folder to save any timestamps to. all timestamping 
+    is handled through the log function which writes the timestamp to a buffer which is
+    periodically saved to a csv file in the save directory if the protocol is running
+
+    """
     def __init__(self, loc):
         super(SetupVis, self).__init__()
         self.loc = Path(loc)
@@ -53,13 +63,15 @@ class SetupVis(QMainWindow):
         self.buffer = {}
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
         self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")  # TODO: need a file dialog to create a file to save the data to
+        prot = (Path("setups")/self.loc.name/'protocols'/self.prot_name).as_posix()
+        setup_mod = importlib.import_module(prot.replace('/','.'))
+        state_machine = getattr(setup_mod, self.prot_name)
+        self.state_machine = state_machine(self)
         self.timer.start(1000)
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.running = True
         self.prot_select.setEnabled(False)
-
-
 
     def stop_protocol(self):
         self.running = False
@@ -72,15 +84,9 @@ class SetupVis(QMainWindow):
 
     def change_protocol(self):
         # import and create the statemachine
-        prot_name = self.prot_select.currentText()
-        if len(prot_name)>0:
+        self.prot_name = self.prot_select.currentText()
+        if len(self.prot_name)>0:
             self.start_btn.setEnabled(True)
-            prot = (Path("setups")/self.loc.name/'protocols'/prot_name).as_posix()
-            print(prot.replace('/','.'))
-            import importlib
-            setup_mod = importlib.import_module(prot.replace('/','.'))
-            state_machine = getattr(setup_mod, prot_name)
-            self.state_machine = state_machine(self)
         else:
             self.state_machine = None
             self.start_btn.setEnabled(False)
@@ -99,12 +105,18 @@ class SetupVis(QMainWindow):
         data.to_csv(self.filename)
         self.buffer = {}
 
-class DIChanThread(QThread):
-
+class NIDIChanThread(QThread):
+    """
+    PYQT compatible thread for continuously asynchronously monitoring NI digital input ports
+    using change detection timing. The thread will emit a custom signal called state_updated 
+    whenever a change detection event occurs (rising and falling edge). the signal will contain
+    a pandas series mapping ports to their current state
+    """
+    
     state_updated = pyqtSignal(object)
 
     def __init__(self, ports, falling_edge = True):
-        super(DIChanThread, self).__init__()
+        super(NIDIChanThread, self).__init__()
         self.ports = ports
         self.falling_edge = falling_edge
 
@@ -245,22 +257,21 @@ class ValveControl(QWidget):
 
 
 def pulse_valve(port, dur, valve_name = "", parent = None):
-    print("opening valve")
-    #TODO: actually pulse the valve
-    if parent is None:
-        with Task() as task:
-            task.do_channels.add_do_chan(port)
-            task.write(False, auto_start = True)
-            time.sleep(dur/1000.)
-            task.write(True, auto_start = True)
-            task.wait_until_done()
-    else:
-        with Task() as task:
-            task.do_channels.add_do_chan(port)
-            task.write(False, auto_start = True)
-            task.wait_until_done()
-            parent.log(f"port {valve_name} open")
-            time.sleep(dur/1000.)
-            task.write(True, auto_start = True)
-            task.wait_until_done()
-            parent.log(f"port {valve_name} closed")
+    if dur>0:
+        if parent is None:
+            with Task() as task:
+                task.do_channels.add_do_chan(port)
+                task.write(False, auto_start = True)
+                time.sleep(dur/1000.)
+                task.write(True, auto_start = True)
+                task.wait_until_done()
+        else:
+            with Task() as task:
+                task.do_channels.add_do_chan(port)
+                task.write(False, auto_start = True)
+                task.wait_until_done()
+                parent.log(f"port {valve_name} open")
+                time.sleep(dur/1000.)
+                task.write(True, auto_start = True)
+                task.wait_until_done()
+                parent.log(f"port {valve_name} closed")

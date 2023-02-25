@@ -28,7 +28,7 @@ class TMAZE(SetupVis):
         self.beams.loc[bottom_arm, 'arm'] = "bottom"
         self.beams.loc[sleep_arm, 'arm'] = "sleep"
 
-        self.beam_thread = DIChanThread(self.beams.port)
+        self.beam_thread = NIDIChanThread(self.beams.port)
         self.beam_thread.state_updated.connect(self.register_beam_break)
         vlayout = QVBoxLayout()
         self.stem_valve = ValveControl(self, self.mapping.loc['juicer_valve2'], 
@@ -116,7 +116,7 @@ class TMAZE(SetupVis):
         self.beam_thread.start()
         self.layout.addLayout(vlayout)
         self.valves = {'a': self.a_valve, 'b': self.b_valve, 's': self.stem_valve}
-        self.lick_thread = DIChanThread(self.mapping.loc[["licks_all"]], falling_edge = False)
+        self.lick_thread = NIDIChanThread(self.mapping.loc[["licks_all"]], falling_edge = False)
         self.lick_thread.state_updated.connect(self.register_lick)
         self.lick_thread.start()
 
