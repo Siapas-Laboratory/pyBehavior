@@ -146,6 +146,9 @@ class NIDIChanThread(QThread):
                 time.sleep(.1)
 
 class ValveControl(QWidget):
+    """
+    this should maybe instead be some kind of general reward port class
+    """
     def __init__(self, parent, port, valve_name, purge_port, flush_port, bleed_port1, bleed_port2):
         super(ValveControl, self).__init__()
         self.parent = parent
