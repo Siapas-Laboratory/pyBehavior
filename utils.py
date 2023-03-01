@@ -58,6 +58,7 @@ class SetupVis(QMainWindow):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.save)
+        self.buffer = {}
 
     def start_protocol(self):
         self.buffer = {}
@@ -146,9 +147,6 @@ class NIDIChanThread(QThread):
                 time.sleep(.1)
 
 class ValveControl(QWidget):
-    """
-    this should maybe instead be some kind of general reward port class
-    """
     def __init__(self, parent, port, valve_name, purge_port, flush_port, bleed_port1, bleed_port2):
         super(ValveControl, self).__init__()
         self.parent = parent
@@ -212,6 +210,7 @@ class ValveControl(QWidget):
             task.do_channels.add_do_chan(bleed_port2)
             task.do_channels.add_do_chan(self.port)
             task.write([True, True, False, False, True], auto_start = True)
+            task.wait_until_done()
 
     def pulse(self):
         if not self.valve_in_use:
@@ -238,43 +237,35 @@ class ValveControl(QWidget):
 
     def open_valve(self):
         if not self.valve_in_use:
-            with Task() as task:
-                task.do_channels.add_do_chan(self.port)
-                task.write(False, auto_start = True)
-                self.parent.log(f"{self.valve_name} open")
-            self.valve_in_use = False
+            digital_write(self.port, False)
+            self.parent.log(f"{self.valve_name} open")
         return
 
     def close_valve(self):
         if not self.valve_in_use:
-            with Task() as task:
-                task.do_channels.add_do_chan(self.port)
-                task.write(True, auto_start = True)
-                self.parent.log(f"{self.valve_name} close")
-            self.valve_in_use = False
+            digital_write(self.port, True)
+            self.parent.log(f"{self.valve_name} close")
         return
 
 
         #TODO: should these settings be saved as well? both in results and as defaults?
 
 
-
 def pulse_valve(port, dur, valve_name = "", parent = None):
     if dur>0:
         if parent is None:
-            with Task() as task:
-                task.do_channels.add_do_chan(port)
-                task.write(False, auto_start = True)
-                time.sleep(dur/1000.)
-                task.write(True, auto_start = True)
-                task.wait_until_done()
+            digital_write(port, False)
+            time.sleep(dur/1000.)
+            digital_write(port, True)
         else:
-            with Task() as task:
-                task.do_channels.add_do_chan(port)
-                task.write(False, auto_start = True)
-                task.wait_until_done()
-                parent.log(f"port {valve_name} open")
-                time.sleep(dur/1000.)
-                task.write(True, auto_start = True)
-                task.wait_until_done()
-                parent.log(f"port {valve_name} closed")
+            digital_write(port, False)
+            parent.log(f"port {valve_name} open")
+            time.sleep(dur/1000.)
+            digital_write(port, True)
+            parent.log(f"port {valve_name} closed")
+
+def digital_write(port, value):
+    with Task() as task:
+        task.do_channels.add_do_chan(port)
+        task.write(value, auto_start = True)
+        task.wait_until_done()
