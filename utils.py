@@ -212,17 +212,17 @@ class ValveControl(QWidget):
             task.write([True, True, False, False, True], auto_start = True)
             task.wait_until_done()
 
-    def pulse(self):
+    def single_pulse(self):
         if not self.valve_in_use:
             self.valve_in_use = True
-            pulse_valve(self.port, float(self.dur.text()),  valve_name = self.valve_name, parent = self.parent)
+            self.pulse_valve(self.port, float(self.dur.text()))
             self.valve_in_use = False
 
 
     def small_pulse(self):
         if not self.valve_in_use:
             self.valve_in_use = True
-            pulse_valve(self.port, float(self.small_pulse_frac.text()) * float(self.dur.text()),  valve_name = self.valve_name, parent = self.parent)
+            self.pulse_valve(self.port, float(self.small_pulse_frac.text()) * float(self.dur.text()))
             self.valve_in_use = False
         pass
 
@@ -230,7 +230,7 @@ class ValveControl(QWidget):
         if not self.valve_in_use:
             self.valve_in_use = True
             for _ in range(self.pulse_mult_num.value()):
-                pulse_valve(self.port, float(self.dur.text()), valve_name = self.valve_name,  parent = self.parent)
+                self.pulse_valve(self.port, float(self.dur.text()))
                 time.sleep(.2)
 
             self.valve_in_use = False
@@ -247,22 +247,14 @@ class ValveControl(QWidget):
             self.parent.log(f"{self.valve_name} close")
         return
 
+    def pulse_valve(self, dur):
+        if dur>0:
+            digital_write(self.port, False)
+            self.parent.log(f"port {self.valve_name} open")
+            time.sleep(dur/1000.) # i should prob do this asynchronously.
+            digital_write(self.port, True)
+            self.parent.log(f"port {self.valve_name} closed")
 
-        #TODO: should these settings be saved as well? both in results and as defaults?
-
-
-def pulse_valve(port, dur, valve_name = "", parent = None):
-    if dur>0:
-        if parent is None:
-            digital_write(port, False)
-            time.sleep(dur/1000.)
-            digital_write(port, True)
-        else:
-            digital_write(port, False)
-            parent.log(f"port {valve_name} open")
-            time.sleep(dur/1000.)
-            digital_write(port, True)
-            parent.log(f"port {valve_name} closed")
 
 def digital_write(port, value):
     with Task() as task:

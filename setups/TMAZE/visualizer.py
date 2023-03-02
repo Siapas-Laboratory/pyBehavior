@@ -149,6 +149,10 @@ class TMAZE(SetupVis):
         self.lick_thread.state_updated.connect(self.register_lick)
         self.lick_thread.start()
 
+        self.trial_lick_n = 0
+        self.prev_lick = datetime.now()
+        self.bout_thresh = 1
+
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
     
@@ -161,14 +165,46 @@ class TMAZE(SetupVis):
             self.log(f"lowering {door}")
             digital_write(self.doors.loc[door,'port'], True)
 
-    def trigger_reward(self, valve, typ = 'full'):
-        if typ =='full':
-            self.valves[valve].pulse()
-        if typ == 'small':
+    def trigger_reward(self, valve, typ = 'full', lick_triggered = False):
+        if (typ =='full') and not lick_triggered:
+            self.valves[valve].single_pulse()
+        elif (typ =='full') and lick_triggered:
+            self.lick_triggered_reward(valve, float(self.valves[valve].dur.text())/1000.)
+        elif (typ == 'small') and not lick_triggered:
             self.valves[valve].small_pulse()
+        elif (typ =='small') and lick_triggered:
+            self.lick_triggered_reward(valve, float(self.valves[valve].small_pulse_frac.text()) * float(self.valves[valve].dur.text())/1000.)
+
+    def lick_triggered_reward(self, valve, dur, lick_thresh = 3):
+        # NOTE: this code assumes reward amount is controled by duration of pulse
+        # such that speed of reward delivery is fixed.
+        # this makes sense to me but need to make sure i can calibrate the
+        # syringe pumps to be controllable by a duration in this way
+        vopen = False
+        querying = True
+        while querying:
+            if ((self.trial_lick_n % lick_thresh) == 0) and not vopen:
+                self.valves[valve].open_valve()
+                vopen_t = datetime.now()
+                vopen = True
+            elif vopen:
+                t = datetime.now()
+                t_since_open = (t- vopen_t).total_seconds()
+                t_since_last_lick = (t - self.prev_lick).total_seconds()
+                if t_since_last_lick >= self.bout_thresh:
+                    self.valves[valve].close_valve()
+                    vopen = False
+                    self.trial_lick_n = 0
+                if t_since_open>=dur:
+                    self.valves[valve].close_valve()
+                    vopen = False
+                    querying = False
+
 
     def register_lick(self, data):
         self.log('lick')
+        self.trial_lick_n += 1
+        self.prev_lick = datetime.now()
 
     
     def register_beam_break(self, data):

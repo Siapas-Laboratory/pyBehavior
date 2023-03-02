@@ -116,13 +116,15 @@ class tmaze_alternation(StateMachine):
         self.tracker.current_trial_start = datetime.now()
 
     def deliver_reward(self):
+        self.parent.trial_lick_n = 0
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, 'full')
+        self.parent.trigger_reward(arm, 'full', lick_triggered = True)
 
 
     def deliver_small_reward(self):
+        self.parent.trial_lick_n = 0
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, 'small')
+        self.parent.trigger_reward(arm, 'small', lick_triggered = True)
 
     def handle_input(self, dg_input):
         if dg_input in self.beams.index:
