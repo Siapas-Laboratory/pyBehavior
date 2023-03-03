@@ -63,7 +63,7 @@ class SetupVis(QMainWindow):
     def start_protocol(self):
         self.buffer = {}
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
-        self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")  # TODO: need a file dialog to create a file to save the data to
+        self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")
         prot = (Path("setups")/self.loc.name/'protocols'/self.prot_name).as_posix()
         setup_mod = importlib.import_module(prot.replace('/','.'))
         state_machine = getattr(setup_mod, self.prot_name)
@@ -94,7 +94,6 @@ class SetupVis(QMainWindow):
 
     def log(self, event):
         self.buffer.update({datetime.now(): event})
-
 
     def save(self):
         buff = pd.Series(self.buffer).rename('event').to_frame()
@@ -146,6 +145,46 @@ class NIDIChanThread(QThread):
             while True:
                 time.sleep(.1)
 
+class RewardDeliveryThread(QThread):
+
+    def __init__(self, parent, valve, typ, lick_thresh, bout_thresh, lick_triggered):
+        super(RewardDeliveryThread, self).__init__()
+        self.parent = parent
+        self.valve = valve
+        if typ == 'small':
+            self.dur = float(self.valve.small_pulse_frac.text()) * float(self.valve.dur.text())/1000.
+        else:
+            self.dur = float(self.valve.dur.text())/1000.
+        self.lick_thresh = lick_thresh
+        self.lick_triggered = lick_triggered
+        self.bout_thresh = bout_thresh
+
+    def run(self):
+        if self.lick_triggered:
+            vopen = False
+            querying = True
+            while querying:
+                if (self.parent.trial_lick_n>0) and ((self.parent.trial_lick_n % self.lick_thresh) == 0) and not vopen:
+                    self.valve.open_valve()
+                    vopen_t = datetime.now()
+                    vopen = True
+                elif vopen:
+                    t = datetime.now()
+                    t_since_open = (t - vopen_t).total_seconds()
+                    t_since_last_lick = (t - self.parent.prev_lick).total_seconds()
+                    if t_since_last_lick >= self.bout_thresh:
+                        self.valve.close_valve()
+                        vopen = False
+                        self.trial_lick_n = 0
+                    if t_since_open>=self.dur:
+                        self.valve.close_valve()
+                        vopen = False
+                        querying = False
+        else:
+            self.valve.pulse_valve(self.dur)
+
+
+
 class ValveControl(QWidget):
     def __init__(self, parent, port, valve_name, purge_port, flush_port, bleed_port1, bleed_port2):
         super(ValveControl, self).__init__()
@@ -173,7 +212,7 @@ class ValveControl(QWidget):
         self.dur.setText("400")
 
         pulse_btn = QPushButton("Pulse")
-        pulse_btn.clicked.connect(self.pulse)
+        pulse_btn.clicked.connect(self.single_pulse)
         pulse_layout.addWidget(dur_label)
         pulse_layout.addWidget(self.dur)
         pulse_layout.addWidget(pulse_btn)
