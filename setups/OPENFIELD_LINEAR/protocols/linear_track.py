@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
 import pandas as pd
 
+
 class linear_track(StateMachine):
 
     sleep = State("sleep", initial=True)

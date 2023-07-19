@@ -3,7 +3,8 @@ import sys
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
 sys.path.append("../")
-from utils import *
+from utils.ni import *
+from utils.ui import *
 
 
 
@@ -107,25 +108,27 @@ class TMAZE(SetupVis):
         self.doors['button'] = pd.Series(door_buttons)
         self.door_button_group.buttonToggled.connect(self.toggle_door)
         # valve widgets
-        self.stem_valve = ValveControl(self, self.mapping.loc['juicer_valve2'], 
-                                        'juicer_valve2', 
-                                        self.mapping.loc['juicer_purge'],
-                                        self.mapping.loc['juicer_flush'],
-                                        self.mapping.loc['juicer_bleed1'],
-                                        self.mapping.loc['juicer_bleed2'])
-        self.b_valve = ValveControl(self, self.mapping.loc['juicer_valve3'], 
-                                    'juicer_valve3',
-                                    self.mapping.loc['juicer_purge'],
-                                    self.mapping.loc['juicer_flush'],
-                                    self.mapping.loc['juicer_bleed1'],
-                                    self.mapping.loc['juicer_bleed2'])
-        self.a_valve = ValveControl(self, self.mapping.loc['juicer_valve1'], 
-                                    'juicer_valve1',
-                                    self.mapping.loc['juicer_purge'],
-                                    self.mapping.loc['juicer_flush'],
-                                    self.mapping.loc['juicer_bleed1'],
-                                    self.mapping.loc['juicer_bleed2'])
-        
+        stem_valve = NIValve(self.mapping.loc['juicer_valve2'], 
+                                'juicer_valve2', 
+                                self.mapping.loc['juicer_purge'],
+                                self.mapping.loc['juicer_flush'],
+                                self.mapping.loc['juicer_bleed1'],
+                                self.mapping.loc['juicer_bleed2'])
+        self.stem_valve = RewardControl(self, stem_valve)
+        b_valve = NIValve(self, self.mapping.loc['juicer_valve3'], 
+                                'juicer_valve3',
+                                self.mapping.loc['juicer_purge'],
+                                self.mapping.loc['juicer_flush'],
+                                self.mapping.loc['juicer_bleed1'],
+                                self.mapping.loc['juicer_bleed2'])
+        self.b_valve = RewardControl(self, b_valve)
+        a_valve = NIValve(self, self.mapping.loc['juicer_valve1'], 
+                                'juicer_valve1',
+                                self.mapping.loc['juicer_purge'],
+                                self.mapping.loc['juicer_flush'],
+                                self.mapping.loc['juicer_bleed1'],
+                                self.mapping.loc['juicer_bleed2'])
+        self.a_valve = RewardControl(self, a_valve) 
         self.valves = {'a': self.a_valve, 'b': self.b_valve, 's': self.stem_valve}
 
         #format widgets
@@ -165,17 +168,11 @@ class TMAZE(SetupVis):
             self.log(f"lowering {door}")
             digital_write(self.doors.loc[door,'port'], True)
 
-    def trigger_reward(self, arm, typ = 'full', lick_triggered = False):
-        self.reward_thread = RewardDeliveryThread(self, self.valves[arm], typ, 3, .5, lick_triggered)
-        self.reward_thread.start()
-
-
     def register_lick(self, data):
         self.log('lick')
         self.trial_lick_n += 1
         self.prev_lick = datetime.now()
-
-    
+  
     def register_beam_break(self, data):
         changed = data[self.beams.state != data].index
         for c in changed:

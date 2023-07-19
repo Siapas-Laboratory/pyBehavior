@@ -1,9 +1,9 @@
 from statemachine import StateMachine, State
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import  QTimer
+from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
+from datetime import datetime
+import pandas as pd
 
-import sys
-sys.path.append("../")
-from utils import *
 
 
 class tmaze_alternation(StateMachine):
