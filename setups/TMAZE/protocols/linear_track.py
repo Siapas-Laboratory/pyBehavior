@@ -34,7 +34,7 @@ class linear_track(StateMachine):
     def deliver_reward(self):
         arm = self.current_state.id[0]
         self.parent.log(f"arm {arm} correct")
-        self.parent.trigger_reward(arm, 'full')
+        self.parent.trigger_reward(arm, False)
         self.tracker.current_trial_start = datetime.now()
         self.tracker.tot_laps_n += 1
         self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n%2}")

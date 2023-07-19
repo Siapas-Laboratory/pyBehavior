@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout,
 sys.path.append("../")
 from utils.ni import *
 from utils.ui import *
+from pathlib import Path
 
 
 
@@ -107,29 +108,32 @@ class TMAZE(SetupVis):
         self.beams['button'] = pd.Series(beam_buttons)
         self.doors['button'] = pd.Series(door_buttons)
         self.door_button_group.buttonToggled.connect(self.toggle_door)
+
         # valve widgets
-        stem_valve = NIValve(self.mapping.loc['juicer_valve2'], 
-                                'juicer_valve2', 
-                                self.mapping.loc['juicer_purge'],
-                                self.mapping.loc['juicer_flush'],
-                                self.mapping.loc['juicer_bleed1'],
-                                self.mapping.loc['juicer_bleed2'])
-        self.stem_valve = RewardControl(self, stem_valve)
-        b_valve = NIValve(self, self.mapping.loc['juicer_valve3'], 
-                                'juicer_valve3',
-                                self.mapping.loc['juicer_purge'],
-                                self.mapping.loc['juicer_flush'],
-                                self.mapping.loc['juicer_bleed1'],
-                                self.mapping.loc['juicer_bleed2'])
-        self.b_valve = RewardControl(self, b_valve)
-        a_valve = NIValve(self, self.mapping.loc['juicer_valve1'], 
-                                'juicer_valve1',
-                                self.mapping.loc['juicer_purge'],
-                                self.mapping.loc['juicer_flush'],
-                                self.mapping.loc['juicer_bleed1'],
-                                self.mapping.loc['juicer_bleed2'])
-        self.a_valve = RewardControl(self, a_valve) 
-        self.valves = {'a': self.a_valve, 'b': self.b_valve, 's': self.stem_valve}
+        self.stem_valve = NIRewardControl( self.mapping.loc['juicer_valve2'], 
+                                        'juicer_valve2', self,
+                                        self.mapping.loc['juicer_purge'],
+                                        self.mapping.loc['juicer_flush'],
+                                        self.mapping.loc['juicer_bleed1'],
+                                        self.mapping.loc['juicer_bleed2'])
+        
+        self.b_valve = NIRewardControl( self.mapping.loc['juicer_valve3'], 
+                                        'juicer_valve3', self,
+                                        self.mapping.loc['juicer_purge'],
+                                        self.mapping.loc['juicer_flush'],
+                                        self.mapping.loc['juicer_bleed1'],
+                                        self.mapping.loc['juicer_bleed2'])
+
+        self.a_valve = NIRewardControl( self.mapping.loc['juicer_valve1'], 
+                                        'juicer_valve1', self,
+                                        self.mapping.loc['juicer_purge'],
+                                        self.mapping.loc['juicer_flush'],
+                                        self.mapping.loc['juicer_bleed1'],
+                                        self.mapping.loc['juicer_bleed2']) 
+        
+        self.reward_modules.update({'a': self.a_valve, 
+                                    'b': self.b_valve, 
+                                    's': self.stem_valve})
 
         #format widgets
         vlayout = QVBoxLayout()

@@ -3,10 +3,10 @@ import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
+import time
 
-
-path_to_rpi_reward_mod = '/Users/nathanielnyema/Downloads/rpi-reward-module/'
-
+# path_to_rpi_reward_mod = '/Users/nathanielnyema/Downloads/rpi-reward-module/'
+path_to_rpi_reward_mod = r'C:\Users\Siapas\Downloads\rpi-reward-module'
 
 class RPIRewardControl(QWidget):
 
@@ -55,6 +55,7 @@ class RPIRewardControl(QWidget):
         small_pulse_layout.addWidget(self.small_pulse_frac)
         small_pulse_layout.addWidget(small_pulse_btn)
         vlayout.addLayout(small_pulse_layout)
+        self.setLayout(vlayout)
     
     def single_pulse(self):
         self.pulse(float(self.amt.text()))
@@ -89,6 +90,10 @@ class RPILickThread(QThread):
     def run(self):
         prev_licks = 0
         while True:
-            licks = int(self.client.get_prop(self.module, 'licks'))
-            if licks!=prev_licks:
-                self.state_updated.emit(licks)
+            try:
+                licks = int(self.client.get_prop(self.module, 'licks'))
+                if licks!=prev_licks:
+                    self.state_updated.emit(licks)
+            except ValueError as e:
+                print(f"invalid read on {self.module}")
+                raise e

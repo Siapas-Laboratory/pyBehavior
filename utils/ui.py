@@ -92,8 +92,8 @@ class SetupVis(QMainWindow):
             self.state_machine = None
             self.start_btn.setEnabled(False)
     
-    def trigger_reward(self, module, amount, lick_triggered = False):
-        self.reward_modules[module].trigger_reward(amount, lick_triggered)
+    def trigger_reward(self, module, small):
+        self.reward_modules[module].trigger_reward(small)
 
     def log(self, event):
         self.buffer.update({datetime.now(): event})

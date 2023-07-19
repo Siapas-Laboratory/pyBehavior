@@ -64,6 +64,8 @@ class NIRewardControl(QWidget):
         self.name = name
         self.parent = parent
         self.valve_in_use = False
+        self.lick_thresh = 3
+        self.bout_thresh = .5
 
         vlayout= QVBoxLayout()
         valve_label = QLabel(self.name)
@@ -80,6 +82,7 @@ class NIRewardControl(QWidget):
         flow_layout = QHBoxLayout()
         flow_label = QLabel("Flow Rate (mL/s)")
         self.flow_rate = QLineEdit()
+        self.flow_rate.setText("0.86")
         flow_layout.addWidget(flow_label)
         flow_layout.addWidget(self.flow_rate)
         vlayout.addLayout(flow_layout)
@@ -87,6 +90,20 @@ class NIRewardControl(QWidget):
         self.lick_triggered = QCheckBox('Lick Triggered')
         vlayout.addWidget(self.lick_triggered)
         self.lick_triggered.setChecked(False)
+
+        tpulse_layout = QHBoxLayout()
+        dur_label = QLabel("Timed Pulse Duration")
+        self.dur = QLineEdit()
+        self.dur.setValidator(QDoubleValidator())
+        self.dur.setText("1")
+
+        tpulse_btn = QPushButton("Timed Pulse")
+        tpulse_btn.clicked.connect(self.timed_pulse)
+        tpulse_layout.addWidget(dur_label)
+        tpulse_layout.addWidget(self.dur)
+        tpulse_layout.addWidget(tpulse_btn)
+        vlayout.addLayout(tpulse_layout)
+
 
         pulse_layout = QHBoxLayout()
         amt_label = QLabel("Reward Amount (mL)")
@@ -133,12 +150,21 @@ class NIRewardControl(QWidget):
             task.do_channels.add_do_chan(self.port)
             task.write([True, True, False, False, True], auto_start = True)
             task.wait_until_done()
+    
+    def timed_pulse(self):
+        dur = float(self.dur.text())
+        if dur>0:
+            print('opening')
+            digital_write(self.port, False)
+            time.sleep(dur/1000.) # i should prob do this asynchronously.
+            digital_write(self.port, True)
+            print('closing')
 
     def pulse(self, amount):
         dur = amount/float(self.flow_rate.text())
         if dur>0:
             digital_write(self.port, False)
-            time.sleep(dur/1000.) # i should prob do this asynchronously.
+            time.sleep(dur) # i should prob do this asynchronously.
             digital_write(self.port, True)
 
     def single_pulse(self):
@@ -180,7 +206,7 @@ class NIRewardControl(QWidget):
         else:
             amount =  float(self.amt.text())
         self.reward_thread = self.RewardDeliveryThread(self, self.parent, amount, self.lick_thresh, 
-                                                       self.bout_thresh, self.lick_triggeredself.checkState())
+                                                       self.bout_thresh, self.lick_triggered.checkState())
         self.reward_thread.start()
 
     class RewardDeliveryThread(QThread):
@@ -188,7 +214,7 @@ class NIRewardControl(QWidget):
             super(NIRewardControl.RewardDeliveryThread, self).__init__()
             self.parent = parent
             self.valve = valve
-            self.dur = float(amount/self.valve.flow_rate.text())
+            self.amount = amount
             self.lick_thresh = lick_thresh
             self.lick_triggered = lick_triggered
             self.bout_thresh = bout_thresh
@@ -197,6 +223,7 @@ class NIRewardControl(QWidget):
             if self.lick_triggered:
                 vopen = False
                 querying = True
+                dur = self.amount/float(self.valve.flow_rate.text())
                 while querying:
                     if (self.parent.trial_lick_n>0) and ((self.parent.trial_lick_n % self.lick_thresh) == 0) and not vopen:
                         self.valve.open_valve()
@@ -210,9 +237,9 @@ class NIRewardControl(QWidget):
                             self.valve.close_valve()
                             vopen = False
                             self.trial_lick_n = 0
-                        if t_since_open>=self.dur:
+                        if t_since_open>=dur:
                             self.valve.close_valve()
                             vopen = False
                             querying = False
             else:
-                self.valve.pulse_valve(self.dur)
+                self.valve.pulse(self.amount)

@@ -127,11 +127,11 @@ class tmaze_semi_guided(StateMachine):
     def deliver_reward(self):
         self.raise_wall()
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, 'full')
+        self.parent.trigger_reward(arm, False)
 
     def deliver_small_reward(self):
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, 'small')
+        self.parent.trigger_reward(arm, True)
 
 
     def handle_input(self, dg_input):
