@@ -7,6 +7,12 @@ from pathlib import Path
 import time
 from datetime import datetime
 import importlib
+import yaml
+import os
+from utils.rpi import path_to_rpi_reward_mod
+import sys
+sys.path.append(path_to_rpi_reward_mod)
+from client import Client
 
 
 class SetupVis(QMainWindow):
@@ -23,8 +29,18 @@ class SetupVis(QMainWindow):
     def __init__(self, loc):
         super(SetupVis, self).__init__()
         self.loc = Path(loc)
-        mapping = pd.read_csv(self.loc/'port_map.csv')
-        self.mapping = mapping.set_index('name')['port'].fillna("")
+        if os.path.exists(self.loc/'port_map.csv'):
+            mapping = pd.read_csv(self.loc/'port_map.csv')
+            self.mapping = mapping.set_index('name')['port'].fillna("")
+        else:
+            self.mapping = None
+        if os.path.exists(self.loc/'rpi_config.yaml'):
+            with open(self.loc/'rpi_config.yaml', 'r') as f:
+                rpi_config = yaml.safe_load(f)
+            self.client = Client(rpi_config['host'], 
+                                 rpi_config['port'], 
+                                 rpi_config['broadcast_port'])
+            self.client.connect()
 
         container = QWidget()
         self.layout = QVBoxLayout()

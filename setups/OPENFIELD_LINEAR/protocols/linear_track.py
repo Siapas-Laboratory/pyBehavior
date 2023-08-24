@@ -30,8 +30,6 @@ class linear_track(StateMachine):
         self.tracker = linear_tracker()
         self.tracker.show()
 
-
-
     def deliver_reward(self):
         arm = self.current_state.id[0]
         self.parent.log(f"arm {arm} correct")

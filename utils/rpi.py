@@ -1,12 +1,10 @@
 from PyQt5.QtCore import QThread, pyqtSignal
-import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
-import time
 
-# path_to_rpi_reward_mod = '/Users/nathanielnyema/Downloads/rpi-reward-module/'
-path_to_rpi_reward_mod = r'C:\Users\Siapas\Downloads\rpi-reward-module'
+path_to_rpi_reward_mod = '/Users/nathanielnyema/Downloads/rpi-reward-module/'
+# path_to_rpi_reward_mod = r'C:\Users\Siapas\Downloads\rpi-reward-module'
 
 class RPIRewardControl(QWidget):
 
@@ -25,7 +23,6 @@ class RPIRewardControl(QWidget):
         vlayout.addWidget(valve_label)
 
         #NEED control of syringe type
-
         self.lick_triggered = QCheckBox('Lick Triggered')
         vlayout.addWidget(self.lick_triggered)
         self.lick_triggered.setChecked(False)
@@ -55,8 +52,79 @@ class RPIRewardControl(QWidget):
         small_pulse_layout.addWidget(self.small_pulse_frac)
         small_pulse_layout.addWidget(small_pulse_btn)
         vlayout.addLayout(small_pulse_layout)
+
+        tone_freq_layout = QHBoxLayout()
+        tone_freq_label = QLabel("Tone Frequency [Hz]")
+        self.tone_freq = QLineEdit()
+        self.tone_freq.setValidator(QDoubleValidator())
+        self.tone_freq.setText("800")
+        tone_freq_layout.addWidget(tone_freq_label)
+        tone_freq_layout.addWidget(self.tone_freq)
+        vlayout.addLayout(tone_freq_layout)
+
+        tone_dur_layout = QHBoxLayout()
+        tone_dur_label = QLabel("Tone Duration [s]")
+        self.tone_dur = QLineEdit()
+        self.tone_dur.setValidator(QDoubleValidator())
+        self.tone_dur.setText("1")
+        tone_dur_layout.addWidget(tone_dur_label)
+        tone_dur_layout.addWidget(self.tone_dur)
+        vlayout.addLayout(tone_dur_layout)
+
+        tone_vol_layout = QHBoxLayout()
+        tone_vol_label = QLabel("Tone Volume")
+        self.tone_vol = QLineEdit()
+        self.tone_vol.setValidator(only_frac)
+        self.tone_vol.setText("1")
+        tone_vol_layout.addWidget(tone_vol_label)
+        tone_vol_layout.addWidget(self.tone_vol)
+        vlayout.addLayout(tone_vol_layout)
+
+        tone_btn = QPushButton("Play Tone")
+        tone_btn.clicked.connect(self.play_tone)
+        vlayout.addWidget(tone_btn)
+        
+        self.led_btn = QPushButton("Toggle LED")
+        self.led_btn.setCheckable(True)
+        req = {'module': self.module,
+               'plugin': 'LED',
+               'prop': 'on'}
+        init_state = bool(self.client.get(req))
+        self.led_btn.setChecked(init_state)
+        self.led_btn.clicked.connect(self.toggle_led)
+        vlayout.addWidget(self.led_btn)
+
         self.setLayout(vlayout)
-    
+
+
+    def play_tone(self):
+        freq = float(self.tone_freq.text())
+        vol = float(self.tone_vol.text())
+        dur = float(self.tone_dur.text())
+
+        args = {'module': self.module,
+                'freq': freq,
+                'dur': dur,
+                'volume': vol}
+        
+        status = int(self.client.run_command('toggle_LED', args))
+
+        if not status==1:
+            print('error status', status)
+
+    def toggle_led(self):
+        req = {'module': self.module,
+               'plugin': 'LED',
+               'prop': 'on'}
+        led_state = bool(self.client.get(req))
+        args = {'module': self.module,
+                'on': ~led_state}
+        status = int(self.client.run_command('toggle_LED', args))
+        if status != 1:
+            led_state = bool(self.client.get(req))
+            self.led_btn.setChecked(led_state)
+            print('error status', status)
+
     def single_pulse(self):
         self.pulse(float(self.amt.text()))
 
@@ -64,20 +132,25 @@ class RPIRewardControl(QWidget):
         self.pulse(float(self.small_pulse_frac.text()) * float(self.amt.text()))
         
     def pulse(self, amount):
-        try:
-            _ = self.client.trigger_reward(self.module, amount)
-        except:
-            pass
+        args = {'module': self.module, 
+                'amount': amount,
+                'lick_triggered': False}
+        status = int(self.client.run_command("trigger_reward", args))
+        if status != 1: 
+            print('error status', status)
 
     def trigger_reward(self, small = False):
         if small:
             amount =  float(self.small_pulse_frac.text()) * float(self.amt.text())
         else:
             amount =  float(self.amt.text())
-        if self.lick_triggered.checkState():
-            _ = self.client.lick_triggered_reward(self.module, amount)
-        else:
-            _ = self.pulse(self.module, amount)
+        args = {'module': self.module, 
+                'amount': amount,
+                'lick_triggered': self.lick_triggered.checkState()}
+        status = int(self.client.run_command("trigger_reward", args))
+        if status!=1:
+            print('error status', status)
+
 
 class RPILickThread(QThread):
     state_updated = pyqtSignal(object)
@@ -86,13 +159,18 @@ class RPILickThread(QThread):
         assert client.connected
         self.client = client
         self.module = module
+        print(self.module)
     
     def run(self):
         prev_licks = 0
         while True:
             try:
-                licks = int(self.client.get_prop(self.module, 'licks'))
+                req = {'module': self.module,
+                       'plugin': 'lickometer',
+                       'prop': 'licks'}
+                licks = int(self.client.get(req))
                 if licks!=prev_licks:
+                    prev_licks = licks
                     self.state_updated.emit(licks)
             except ValueError as e:
                 print(f"invalid read on {self.module}")

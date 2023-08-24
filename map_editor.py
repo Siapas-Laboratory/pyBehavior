@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QDialog, QScrollArea
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QDialog, QScrollArea, QGridLayout, QCheckBox
 from PyQt5.QtCore import Qt
 import numpy as np
 import pandas as pd
@@ -22,15 +22,19 @@ class NewSetupDialog(QDialog):
 
         layout = QVBoxLayout()
         self.fname_input = QLineEdit()
-        message = QLabel("Please enter a name for the new setup. Avoid all symbols except for - and _")
+        message = QLabel("Please enter a name for the new setup. Avoid spaces and all symbols except for - and _")
+        self.use_ni_cards = QCheckBox("Check here if this setup will use National Instruments Cards")
+        self.use_rpi = QCheckBox("Check here if this setup will use a Raspberry Pi")
+
         layout.addWidget(message)
         layout.addWidget(self.fname_input)
+        layout.addWidget(self.use_ni_cards)
         layout.addLayout(buttonBox)
         self.setLayout(layout)
     
     def check_input(self):
         self.fname = self.fname_input.text()
-        valid = (len(self.fname)>1) & np.all([x.isalnum() or x in [" ", "-", "_"] for x in self.fname])
+        valid = (len(self.fname)>1) & np.all([x.isalnum() or x in ["-", "_"] for x in self.fname])
         if valid:
             self.accept()
 
@@ -65,14 +69,8 @@ class Settings(QMainWindow):
         self.layout.addLayout(self.header_layout)
 
         # fill the body of the window with port labels and inputs for names to assign
-        self.body_layout = QHBoxLayout()
-        self.name_input_layout = QVBoxLayout()
-        self.port_label_layout = QVBoxLayout()
-        self.del_btns_layout = QVBoxLayout()
+        self.body_layout = QGridLayout()
         self.fill_body()
-        self.body_layout.addLayout(self.port_label_layout)
-        self.body_layout.addLayout(self.name_input_layout)
-        self.body_layout.addLayout(self.del_btns_layout)
         self.body_widget = QWidget()       
         self.body_widget.setLayout(self.body_layout)
         
@@ -85,9 +83,9 @@ class Settings(QMainWindow):
 
         #add the widget
         self.layout.addWidget(self.scroll)
-
-        #TODO: need to reformat this. the lineedits are not in line with the labels
-
+        self.get_btn = QPushButton('Get All Ports')
+        self.get_btn.clicked.connect(self.get_all_ports)
+        self.layout.addWidget(self.get_btn)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -101,7 +99,7 @@ class Settings(QMainWindow):
         self.port_labels = []
         self.name_inputs = []
         self.del_btns = []
-        for port, name in self.mapping.iteritems():
+        for i,(port, name) in enumerate(self.mapping.iteritems()):
 
             port_label = QLabel()
             port_label.setText(port)
@@ -117,10 +115,50 @@ class Settings(QMainWindow):
             del_btn.clicked.connect(self.del_map)
             self.del_btns.append(del_btn)
 
-            self.port_label_layout.addWidget(port_label) 
-            self.name_input_layout.addWidget(name_input)
-            self.del_btns_layout.addWidget(del_btn)
-        
+            self.body_layout.addWidget(port_label, i, 0)
+            self.body_layout.addWidget(name_input, i, 1)
+            self.body_layout.addWidget(del_btn, i, 2)
+
+    def scan_ports(self):
+        try:
+            system = nidaqmx.system.System.local()
+            channels = []
+            for dev in system.devices:
+                channels += [i.name for i in dev.di_lines] + [i.name for i in dev.do_lines] + [i.name for i in dev.ai_physical_chans] + [i.name for i in dev.ao_physical_chans]
+            channels = np.unique(channels)
+        except nidaqmx._lib.DaqNotFoundError: # for debugging purposes if not running on the machine itself
+            channels = pd.read_csv('blank_port_map.csv')['port'].tolist()
+        return channels
+
+    def get_all_ports(self):
+        channels = pd.Series(self.scan_ports())
+        channels = list(filter(lambda x: x not in self.mapping.index.tolist(), channels))
+        cur_len = len(self.port_labels)
+        for i, port in enumerate(channels, cur_len):
+
+            self.mapping.loc[port] = ""
+
+            port_label = QLabel()
+            port_label.setText(port)
+            self.port_labels.append(port_label)
+
+            name_input = QLineEdit()
+            name_input.setText(self.mapping.loc[port])
+            name_input.editingFinished.connect(self.update_var_name)
+            self.name_inputs.append(name_input)
+
+
+            del_btn = QPushButton("del")
+            del_btn.clicked.connect(self.del_map)
+            self.del_btns.append(del_btn)
+
+            print(i)
+            self.body_layout.addWidget(port_label, i, 0)
+            self.body_layout.addWidget(name_input, i, 1)
+            self.body_layout.addWidget(del_btn, i, 2)
+
+            self.mapping.loc[port] = ""
+
     def update_var_name(self):
         line = self.name_inputs.index(self.sender())
         self.mapping.iloc[line] = self.name_inputs[line].text()
@@ -129,28 +167,40 @@ class Settings(QMainWindow):
         self.mapping.to_frame().to_csv(self.map_file)
     
     def create(self):
-        # new_mapping = pd.read_csv('port-mappings/blank.csv').set_index('port')['name'].fillna("")
-        # use 
-        try:
-            system = nidaqmx.system.System.local()
-            channels = []
-            for dev in system.devices:
-                channels += [i.name for i in dev.di_lines] + [i.name for i in dev.do_lines] + [i.name for i in dev.ai_physical_chans] + [i.name for i in dev.ao_physical_chans]
-            channels = np.unique(channels)
-            new_mapping = pd.Series([""]* len(channels), index = pd.Index(channels, name = "port")).rename("name")
-        except nidaqmx._lib.DaqNotFoundError: # for debugging purposes if not running on the machine itself
-            new_mapping = pd.read_csv('port-mappings/blank.csv').set_index('port')['name'].fillna("")
-            new_mapping.loc[:] = ""
-
         dialog = NewSetupDialog()
         dialog.exec_()
 
         if dialog.fname is not None:
-            os.mkdir(os.path.join('setups', dialog.fname))
-            new_map_file = f'setups/{dialog.fname}/port_map.csv'
-            new_mapping.to_frame().to_csv(new_map_file)
+            setup_path = os.path.join('setups', dialog.fname)
+            os.mkdir(setup_path)
+
+            if dialog.use_ni_cards.isChecked():
+                new_map_file = os.path.join(setup_path, 'port_map.csv')
+                channels = self.scan_ports()
+                new_mapping = pd.Series([""]* len(channels), index = pd.Index(channels, name = "port")).rename("name")
+                new_mapping.to_frame().to_csv(new_map_file)
+
+            if dialog.use_rpi.isChecked():
+                # TODO: open a new dialog to input the host and port of the pi
+                # use this to create a config file called rpi_config.yaml
+                pass
+
+            os.mkdir(os.path.join(setup_path, 'protocols'))
+            with open(os.path.join(setup_path, 'visualizer.py'), 'w') as f:
+                starter_code = f"""
+import sys
+sys.path.append("../")
+from utils.ui import *
+
+class {dialog.fname}(SetupVis):
+    def __init__(self):
+        super({dialog.fname}, self).__init__(Path(__file__).parent.resolve())"""
+                
+                f.write(starter_code)
+
             self.map_file_select.addItems([dialog.fname])
             self.map_file_select.setCurrentText(dialog.fname)
+
 
     def change_map_file(self):
 
@@ -164,12 +214,15 @@ class Settings(QMainWindow):
         self.fill_body()        
 
     def del_map(self):
+
         line = self.del_btns.index(self.sender())
+        port = self.port_labels[line].text()
+        print(port)
         self.port_labels[line].deleteLater()
         del self.port_labels[line]
         self.name_inputs[line].deleteLater()
         del self.name_inputs[line]
         self.del_btns[line].deleteLater()
         del self.del_btns[line]
-        self.mapping.drop(index = self.mapping.index[line], inplace=True)
+        self.mapping.drop(index = port, inplace=True)
 
