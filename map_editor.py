@@ -176,7 +176,7 @@ class Settings(QMainWindow):
     def get_all_ports(self):
         channels = pd.Series(self.scan_ports())
         channels = list(filter(lambda x: x not in self.mapping.index.tolist(), channels))
-        cur_len = len(self.port_labels)
+        cur_len = self.body_layout.rowCount()
         for i, port in enumerate(channels, cur_len):
 
             self.mapping.loc[port] = ""
@@ -195,7 +195,6 @@ class Settings(QMainWindow):
             del_btn.clicked.connect(self.del_map)
             self.del_btns.append(del_btn)
 
-            print(i)
             self.body_layout.addWidget(port_label, i, 0)
             self.body_layout.addWidget(name_input, i, 1)
             self.body_layout.addWidget(del_btn, i, 2)

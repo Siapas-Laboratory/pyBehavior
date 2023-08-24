@@ -54,14 +54,14 @@ class MainWindow(QMainWindow):
 
     def open_setup_dialog(self):
         dialog = SetupSelectDialog()
-        dialog.exec_()
-        # should check if they clicked ok first
-        setup = dialog.setup_select.currentItem().text()
-        import importlib
-        setup_mod = importlib.import_module(f'setups.{setup}.visualizer')
-        Visualizer = getattr(setup_mod, setup)
-        self.visualizer = Visualizer()
-        self.visualizer.show()
+        res = dialog.exec_()
+        if res:
+            setup = dialog.setup_select.currentItem().text()
+            import importlib
+            setup_mod = importlib.import_module(f'setups.{setup}.visualizer')
+            Visualizer = getattr(setup_mod, setup)
+            self.visualizer = Visualizer()
+            self.visualizer.show()
 
 
 if __name__ == '__main__':
