@@ -37,9 +37,9 @@ class SetupVis(QMainWindow):
         if os.path.exists(self.loc/'rpi_config.yaml'):
             with open(self.loc/'rpi_config.yaml', 'r') as f:
                 rpi_config = yaml.safe_load(f)
-            self.client = Client(rpi_config['host'], 
-                                 rpi_config['port'], 
-                                 rpi_config['broadcast_port'])
+            self.client = Client(rpi_config['HOST'], 
+                                 rpi_config['PORT'], 
+                                 rpi_config['BROADCAST_PORT'])
             self.client.connect()
 
         container = QWidget()

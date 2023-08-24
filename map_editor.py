@@ -22,16 +22,59 @@ class NewSetupDialog(QDialog):
 
         layout = QVBoxLayout()
         self.fname_input = QLineEdit()
-        message = QLabel("Please enter a name for the new setup. Avoid spaces and all symbols except for - and _")
+        message = QLabel("Please enter a name for the new setup. Avoid spaces and all symbols except for _")
         self.use_ni_cards = QCheckBox("Check here if this setup will use National Instruments Cards")
         self.use_rpi = QCheckBox("Check here if this setup will use a Raspberry Pi")
+        rpi_dialog_layout = QVBoxLayout()
+
+        host_layout = QHBoxLayout()
+        host_label = QLabel('HOST')
+        self.rpi_host = QLineEdit()
+        host_layout.addWidget(host_label)
+        host_layout.addWidget(self.rpi_host)
+        rpi_dialog_layout.addLayout(host_layout)
+
+        port_layout = QHBoxLayout()
+        port_label = QLabel('PORT')
+        self.rpi_port = QLineEdit()
+        port_layout.addWidget(port_label)
+        port_layout.addWidget(self.rpi_port)
+        rpi_dialog_layout.addLayout(port_layout)
+
+        bport_layout = QHBoxLayout()
+        bport_label = QLabel('BROADCAST PORT')
+        self.rpi_bport = QLineEdit()
+        bport_layout.addWidget(bport_label)
+        bport_layout.addWidget(self.rpi_bport)
+        rpi_dialog_layout.addLayout(bport_layout)
+
+        self.rpi_dialog = QWidget()
+        self.rpi_dialog.setLayout(rpi_dialog_layout)
+        self.rpi_dialog.hide()
+
+        self.use_rpi.clicked.connect(self.show_rpi_dialog)
 
         layout.addWidget(message)
         layout.addWidget(self.fname_input)
         layout.addWidget(self.use_ni_cards)
+        layout.addWidget(self.use_rpi)
+        layout.addWidget(self.rpi_dialog)
         layout.addLayout(buttonBox)
         self.setLayout(layout)
-    
+        self.orig_size = self.minimumSizeHint()
+        self.height =self.orig_size.height()
+        self.width =self.orig_size.width()
+
+
+    def show_rpi_dialog(self):
+        if self.use_rpi.isChecked():
+            self.rpi_dialog.show()
+        else:
+            self.rpi_dialog.hide()
+        self.setMinimumSize(self.width, self.height)
+        self.resize(self.minimumSizeHint())
+        self.show()
+
     def check_input(self):
         self.fname = self.fname_input.text()
         valid = (len(self.fname)>1) & np.all([x.isalnum() or x in ["-", "_"] for x in self.fname])
@@ -48,7 +91,7 @@ class Settings(QMainWindow):
         self.header_layout = QHBoxLayout()
 
         # create a drop down menu of available mappings
-        available_mappings = [i.stem for i in Path('setups').iterdir()]
+        available_mappings = [i.stem for i in Path('setups').iterdir() if 'port_map.csv' in [j.name for j in i.iterdir()]]
         self.map_file_select = QComboBox()
         self.map_file_select.addItems(available_mappings)
         self.map_file = os.path.join('setups',self.map_file_select.currentText(),'port_map.csv')
@@ -181,9 +224,10 @@ class Settings(QMainWindow):
                 new_mapping.to_frame().to_csv(new_map_file)
 
             if dialog.use_rpi.isChecked():
-                # TODO: open a new dialog to input the host and port of the pi
-                # use this to create a config file called rpi_config.yaml
-                pass
+                with open(os.path.join(setup_path, 'rpi_config.yaml'), 'w') as f:
+                    f.write(f"HOST: {dialog.rpi_host.text()}\n")
+                    f.write(f"PORT: {dialog.rpi_port.text()}\n")
+                    f.write(f"BROADCAST_PORT: {dialog.rpi_bport.text()}")
 
             os.mkdir(os.path.join(setup_path, 'protocols'))
             with open(os.path.join(setup_path, 'visualizer.py'), 'w') as f:
@@ -194,12 +238,13 @@ from utils.ui import *
 
 class {dialog.fname}(SetupVis):
     def __init__(self):
-        super({dialog.fname}, self).__init__(Path(__file__).parent.resolve())"""
-                
+        super({dialog.fname}, self).__init__(Path(__file__).parent.resolve())
+"""          
                 f.write(starter_code)
 
-            self.map_file_select.addItems([dialog.fname])
-            self.map_file_select.setCurrentText(dialog.fname)
+            if dialog.use_ni_cards.isChecked():
+                self.map_file_select.addItems([dialog.fname])
+                self.map_file_select.setCurrentText(dialog.fname)
 
 
     def change_map_file(self):

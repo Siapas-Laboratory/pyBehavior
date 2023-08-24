@@ -1,9 +1,4 @@
 port,name
-192.168.0.246,host
-5562,port
-5563,broadcast_port
-module1,module1
-module2,module2
 Dev3/port0/line0,licks_all
 Dev2/port5/line0,beam9
 Dev2/port5/line1,beam10
