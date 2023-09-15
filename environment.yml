@@ -14,4 +14,3 @@ dependencies:
   - pyyaml
   - pip:
     - nidaqmx
-    - paramiko

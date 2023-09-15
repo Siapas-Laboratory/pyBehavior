@@ -3,8 +3,6 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
 
-path_to_rpi_reward_mod = '/Users/nathanielnyema/Downloads/rpi-reward-module/'
-# path_to_rpi_reward_mod = r'C:\Users\Siapas\Downloads\rpi-reward-module'
 
 class RPIRewardControl(QWidget):
 

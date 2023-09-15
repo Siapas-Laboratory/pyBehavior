@@ -9,10 +9,7 @@ from datetime import datetime
 import importlib
 import yaml
 import os
-from utils.rpi import path_to_rpi_reward_mod
-import sys
-sys.path.append(path_to_rpi_reward_mod)
-from client import Client
+from ratBerryPi.client import Client
 
 
 class SetupVis(QMainWindow):
