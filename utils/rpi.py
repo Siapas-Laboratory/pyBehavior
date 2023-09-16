@@ -2,7 +2,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
-
+import time
 
 class RPIRewardControl(QWidget):
 
@@ -173,3 +173,5 @@ class RPILickThread(QThread):
             except ValueError as e:
                 print(f"invalid read on {self.module}")
                 raise e
+            finally:
+                time.sleep(.005)

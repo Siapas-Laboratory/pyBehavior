@@ -2,8 +2,7 @@ from statemachine import StateMachine, State
 from PyQt5.QtCore import  QTimer
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
-import pandas as pd
-
+import numpy as np
 
 class linear_track(StateMachine):
 
@@ -11,25 +10,27 @@ class linear_track(StateMachine):
     a_reward= State("a_reward")
     b_reward= State("b_reward")
 
-    beamA =  ( sleep.to(a_reward,  after = "deliver_reward") 
+    zoneA =  ( sleep.to(a_reward,  after = "deliver_reward") 
                | b_reward.to(a_reward,  after = "deliver_reward") 
                | a_reward.to.itself() 
     )
 
 
-    beamB =  ( sleep.to(b_reward,  after = "deliver_reward") 
+    zoneB =  ( sleep.to(b_reward,  after = "deliver_reward") 
                | a_reward.to(b_reward,  after = "deliver_reward") 
                | b_reward.to.itself() 
     )
 
     def __init__(self, parent):
         super(linear_track, self).__init__()
-        self.beams = pd.Series({'beam8': self.beamB, 
-                                'beam16': self.beamA})
         self.parent = parent
         self.tracker = linear_tracker()
         self.tracker.show()
-
+        self.zoneA_span = np.array([[-100, 400], # x span of zone A
+                                    [600, 1000]])  # y span of zone A
+        self.zoneB_span = np.array([[1100, 1600], # x span of zone B
+                                    [600, 1000]]) # y span of zone B
+        
     def deliver_reward(self):
         arm = self.current_state.id[0]
         self.parent.log(f"arm {arm} correct")
@@ -39,9 +40,13 @@ class linear_track(StateMachine):
         self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n%2}")
 
 
-    def handle_input(self, dg_input):
-        if dg_input in self.beams.index:
-            self.beams[dg_input]()
+    def handle_pos(self, pos):
+        if (( self.zoneA_span[0,0] <= pos[0]) and (pos[0] <= self.zoneA_span[0,1]) 
+            and (self.zoneA_span[1,0] <= pos[1]) and (pos[1] <= self.zoneA_span[1,1])):
+            self.zoneA()
+        elif (( self.zoneB_span[0,0] <= pos[0]) and (pos[0] <= self.zoneB_span[0,1]) 
+              and (self.zoneB_span[1,0] <= pos[1]) and (pos[1] <= self.zoneB_span[1,1])):
+            self.zoneB()
 
 class linear_tracker(QMainWindow):
     def __init__(self):
