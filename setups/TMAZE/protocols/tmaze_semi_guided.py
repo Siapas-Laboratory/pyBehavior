@@ -52,13 +52,12 @@ class tmaze_semi_guided(Protocol):
 
 
     def __init__(self, parent):
-        super(tmaze_semi_guided, self).__init__()
+        super(tmaze_semi_guided, self).__init__(parent)
         self.target = None
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
                                 'beam17': self.beamS })
-        self.parent = parent
         for i in range(1,8):
             self.parent.doors.loc[f'door{i}', 'button'].setChecked(False)
 

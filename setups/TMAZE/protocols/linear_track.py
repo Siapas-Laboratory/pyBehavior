@@ -23,10 +23,9 @@ class linear_track(Protocol):
     )
 
     def __init__(self, parent):
-        super(linear_track, self).__init__()
+        super(linear_track, self).__init__(parent)
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA})
-        self.parent = parent
         self.tracker = linear_tracker()
         self.tracker.show()
 

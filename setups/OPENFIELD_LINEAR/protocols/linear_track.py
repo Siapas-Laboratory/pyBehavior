@@ -24,8 +24,7 @@ class linear_track(Protocol):
     )
 
     def __init__(self, parent):
-        super(linear_track, self).__init__()
-        self.parent = parent
+        super(linear_track, self).__init__(parent)
         self.tracker = linear_tracker()
         self.tracker.show()
         self.zoneA_span = np.array([[-100, 400], # x span of zone A

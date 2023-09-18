@@ -61,13 +61,12 @@ class tmaze_alternation(Protocol):
 
 
     def __init__(self, parent):
-        super(tmaze_alternation, self).__init__()
+        super(tmaze_alternation, self).__init__(parent)
         self.target = None
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
                                 'beam17': self.beamS })
-        self.parent = parent
         self.tracker = tmaze_tracker()
         self.tracker.show()
 
