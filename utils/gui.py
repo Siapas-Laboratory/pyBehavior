@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QFileDialog
@@ -9,6 +8,8 @@ import yaml
 import os
 from ratBerryPi.client import Client
 from abc import ABCMeta, abstractmethod
+from collections import UserDict
+from utils.protocols import *
 
 class SetupGUI(QMainWindow):
     """
@@ -46,7 +47,7 @@ class SetupGUI(QMainWindow):
         self.menu_layout = QHBoxLayout()
 
         # load all protocols into the dropdown menu
-        protocols = [ i.stem for i in (self.loc/'protocols').iterdir() ]
+        protocols = [ i.stem for i in (self.loc/'protocols').iterdir() if i.is_file() and i.name[-3:] == '.py' ]
         self.prot_select = QComboBox()
         self.prot_select.addItems([""] + protocols)
         self.prot_select.currentIndexChanged.connect(self.change_protocol)
@@ -83,7 +84,7 @@ class SetupGUI(QMainWindow):
         # placeholder attributes for the save buffer and 
         # the collection of reward modules
         self.buffer = {}
-        self.reward_modules = {}
+        self.reward_modules = ModuleDict()
 
     def start_protocol(self):
         self.buffer = {} # clear the save buffer
@@ -91,9 +92,11 @@ class SetupGUI(QMainWindow):
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
         self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")
         # create the state machine
-        prot = (Path("setups")/self.loc.name/'protocols'/self.prot_name).as_posix()
-        setup_mod = importlib.import_module(prot.replace('/','.'))
+        prot = ".".join(["setups", self.loc.name, "protocols", self.prot_name])
+        setup_mod = importlib.import_module(prot)
         state_machine = getattr(setup_mod, self.prot_name)
+        if not issubclass(state_machine, Protocol):
+            raise ValueError("protocols must be subclasses of utils.protocols.Protocol")
         self.state_machine = state_machine(self)
         # start the timer for saving
         self.timer.start(1000)
@@ -148,3 +151,11 @@ class RewardWidget(QWidget, metaclass = RewardWidgetMeta):
     @abstractmethod
     def trigger_reward(amount, small = False):
         ...
+
+class ModuleDict(UserDict):
+    def __setitem__(self, key, value):
+        if issubclass(type(value), RewardWidget):
+            super().__setitem__(key, value)
+        else:
+            raise ValueError("entries in ModuleDict must be instances of subclasses of utils.gui.RewardWidget")
+    

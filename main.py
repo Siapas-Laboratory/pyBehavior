@@ -7,8 +7,11 @@ from map_editor import *
 class SetupSelectDialog(QDialog):
     def __init__(self):
         super(SetupSelectDialog, self).__init__()
-        setups = [x.name for x in Path('setups').iterdir() if x.is_dir()]
-
+        setups = []
+        for x in Path('setups').iterdir():
+            if x.is_dir():
+                if 'gui.py' in [j.name for j in x.iterdir()]:
+                    setups.append(x.name)
         layout = QVBoxLayout()
         self.setup_select = QListWidget()
         self.setup_select.addItems(setups)
