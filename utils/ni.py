@@ -1,12 +1,13 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QSpinBox, QCheckBox
+from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QSpinBox, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from datetime import datetime
 from nidaqmx import constants, Task
 import logging
 import time
+from utils.gui import RewardWidget
 
 class NIDIChanThread(QThread):
     """
@@ -55,7 +56,7 @@ def digital_write(port, value):
         task.wait_until_done()
 
 
-class NIRewardControl(QWidget):
+class NIRewardControl(RewardWidget):
     def __init__(self, port, name, parent, purge_port, flush_port, bleed_port1, bleed_port2):
         
         super(NIRewardControl, self).__init__()

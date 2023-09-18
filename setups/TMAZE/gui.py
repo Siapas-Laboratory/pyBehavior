@@ -4,12 +4,12 @@ from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
 sys.path.append("../")
 from utils.ni import *
-from utils.ui import *
+from utils.gui import *
 from pathlib import Path
 
 
 
-class TMAZE(SetupVis):
+class TMAZE(SetupGUI):
 
     def __init__(self):
         super(TMAZE, self).__init__(Path(__file__).parent.resolve())

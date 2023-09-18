@@ -10,9 +10,10 @@ import importlib
 import yaml
 import os
 from ratBerryPi.client import Client
+from abc import ABC
 
 
-class SetupVis(QMainWindow):
+class SetupGUI(QMainWindow):
     """
     base class for all setup visualizers
     includes a dropdown menu at the top of the window for selecting a protocol
@@ -24,7 +25,7 @@ class SetupVis(QMainWindow):
 
     """
     def __init__(self, loc):
-        super(SetupVis, self).__init__()
+        super(SetupGUI, self).__init__()
         self.loc = Path(loc)
         if os.path.exists(self.loc/'port_map.csv'):
             mapping = pd.read_csv(self.loc/'port_map.csv')
@@ -120,3 +121,8 @@ class SetupVis(QMainWindow):
              data = buff
         data.to_csv(self.filename)
         self.buffer = {}
+
+class RewardWidget(QWidget, ABC):
+    @abstractmethod
+    def trigger_reward(amount, small = False):
+        ...

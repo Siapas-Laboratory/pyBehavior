@@ -77,7 +77,7 @@ class NewSetupDialog(QDialog):
 
     def check_input(self):
         self.fname = self.fname_input.text()
-        valid = (len(self.fname)>1) & np.all([x.isalnum() or x in ["-", "_"] for x in self.fname])
+        valid = (len(self.fname)>1) & np.all([x.isalnum() or (x == "_") for x in self.fname])
         if valid:
             self.accept()
 
@@ -91,7 +91,11 @@ class Settings(QMainWindow):
         self.header_layout = QHBoxLayout()
 
         # create a drop down menu of available mappings
-        available_mappings = [i.stem for i in Path('setups').iterdir() if 'port_map.csv' in [j.name for j in i.iterdir()]]
+        available_mappings = []
+        for i in Path('setups').iterdir():
+            if i.is_dir():
+                if 'port_map.csv' in [j.name for j in i.iterdir()]:
+                    available_mappings.append(i.stem)
         self.map_file_select = QComboBox()
         self.map_file_select.addItems(available_mappings)
         self.map_file = os.path.join('setups',self.map_file_select.currentText(),'port_map.csv')
@@ -168,13 +172,13 @@ class Settings(QMainWindow):
             channels = []
             for dev in system.devices:
                 channels += [i.name for i in dev.di_lines] + [i.name for i in dev.do_lines] + [i.name for i in dev.ai_physical_chans] + [i.name for i in dev.ao_physical_chans]
-            channels = np.unique(channels)
+            channels = np.unique(channels).tolist()
         except nidaqmx._lib.DaqNotFoundError: # for debugging purposes if not running on the machine itself
-            channels = pd.read_csv('blank_port_map.csv')['port'].tolist()
+            channels = [" "]
         return channels
 
     def get_all_ports(self):
-        channels = pd.Series(self.scan_ports())
+        channels = self.scan_ports()
         channels = list(filter(lambda x: x not in self.mapping.index.tolist(), channels))
         cur_len = self.body_layout.rowCount()
         for i, port in enumerate(channels, cur_len):
@@ -229,13 +233,13 @@ class Settings(QMainWindow):
                     f.write(f"BROADCAST_PORT: {dialog.rpi_bport.text()}")
 
             os.mkdir(os.path.join(setup_path, 'protocols'))
-            with open(os.path.join(setup_path, 'visualizer.py'), 'w') as f:
+            with open(os.path.join(setup_path, 'gui.py'), 'w') as f:
                 starter_code = f"""
 import sys
 sys.path.append("../")
 from utils.ui import *
 
-class {dialog.fname}(SetupVis):
+class {dialog.fname}(SetupGUI):
     def __init__(self):
         super({dialog.fname}, self).__init__(Path(__file__).parent.resolve())
 """          

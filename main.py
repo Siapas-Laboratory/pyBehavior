@@ -58,10 +58,10 @@ class MainWindow(QMainWindow):
         if res:
             setup = dialog.setup_select.currentItem().text()
             import importlib
-            setup_mod = importlib.import_module(f'setups.{setup}.visualizer')
-            Visualizer = getattr(setup_mod, setup)
-            self.visualizer = Visualizer()
-            self.visualizer.show()
+            setup_mod = importlib.import_module(f'setups.{setup}.gui')
+            setup_GUI = getattr(setup_mod, setup)
+            self.setup_GUI = setup_GUI()
+            self.setup_GUI.show()
 
 
 if __name__ == '__main__':

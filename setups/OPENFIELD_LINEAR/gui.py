@@ -1,14 +1,14 @@
 import sys
 sys.path.append("../")
 from PyQt5.QtWidgets import  QHBoxLayout
-from utils.ui import *
+from utils.gui import *
 from utils.rpi import *
 import socket
 import time
 import ast
 import numpy as np
 
-class OPENFIELD_LINEAR(SetupVis):
+class OPENFIELD_LINEAR(SetupGUI):
 
     def __init__(self):
         super(OPENFIELD_LINEAR, self).__init__(Path(__file__).parent.resolve())

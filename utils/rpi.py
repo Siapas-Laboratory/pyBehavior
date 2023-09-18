@@ -3,8 +3,10 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
 import time
+from utils.gui import RewardWidget
 
-class RPIRewardControl(QWidget):
+
+class RPIRewardControl(RewardWidget):
 
     def __init__(self, client, module):
         super(RPIRewardControl, self).__init__()
