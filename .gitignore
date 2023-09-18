@@ -1,5 +1,2 @@
 __pycache__
 .DS_Store
-port-mappings/*
-!port-mappings/blank.csv
-!port-mappings/default.csv
