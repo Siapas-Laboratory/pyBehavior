@@ -1,7 +1,5 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QDialog, QListWidget, QDialogButtonBox
-from PyQt5.QtCore import Qt
-import numpy as np
 from pathlib import Path
 from map_editor import *
 

@@ -85,7 +85,7 @@ class OPENFIELD_LINEAR(SetupGUI):
         pos = (self.x(*pos[::-1])[0], self.y(*pos[::-1])[0])
         self.pos.setText(str(pos))
         if self.running:
-            self.state_machine.handle_pos(pos)
+            self.state_machine.handle_input(pos)
 
 class Position(QThread):
     def __init__(self, parent):

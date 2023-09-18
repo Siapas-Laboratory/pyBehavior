@@ -3,8 +3,9 @@ from PyQt5.QtCore import  QTimer
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
 import pandas as pd
+from utils.protocols import Protocol
 
-class linear_track(StateMachine):
+class linear_track(Protocol):
 
     sleep = State("sleep", initial=True)
     a_reward= State("a_reward")

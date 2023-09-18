@@ -3,10 +3,10 @@ from PyQt5.QtCore import  QTimer
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
 import pandas as pd
+from utils.protocols import Protocol
 
 
-
-class tmaze_alternation(StateMachine):
+class tmaze_alternation(Protocol):
 
     sleep = State("sleep", initial=True)
     stem_reward= State("stem_reward")

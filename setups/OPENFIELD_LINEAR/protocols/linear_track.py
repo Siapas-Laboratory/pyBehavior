@@ -1,10 +1,12 @@
-from statemachine import StateMachine, State
+from statemachine import State
 from PyQt5.QtCore import  QTimer
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
 import numpy as np
+from utils.protocols import Protocol
 
-class linear_track(StateMachine):
+
+class linear_track(Protocol):
 
     sleep = State("sleep", initial=True)
     a_reward= State("a_reward")
@@ -40,7 +42,7 @@ class linear_track(StateMachine):
         self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n%2}")
 
 
-    def handle_pos(self, pos):
+    def handle_input(self, pos):
         if (( self.zoneA_span[0,0] <= pos[0]) and (pos[0] <= self.zoneA_span[0,1]) 
             and (self.zoneA_span[1,0] <= pos[1]) and (pos[1] <= self.zoneA_span[1,1])):
             self.zoneA()

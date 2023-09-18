@@ -1,17 +1,14 @@
 import numpy as np
 import pandas as pd
-from PyQt5.QtCore import QTimer, QThread
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QLineEdit, QLabel, QSpinBox, QFileDialog
-from PyQt5.QtGui import  QDoubleValidator
+from PyQt5.QtCore import QTimer
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QFileDialog
 from pathlib import Path
-import time
 from datetime import datetime
 import importlib
 import yaml
 import os
 from ratBerryPi.client import Client
-from abc import ABC
-
+from abc import ABCMeta, abstractmethod
 
 class SetupGUI(QMainWindow):
     """
@@ -27,11 +24,15 @@ class SetupGUI(QMainWindow):
     def __init__(self, loc):
         super(SetupGUI, self).__init__()
         self.loc = Path(loc)
+
+        # if there is a ni port map for this setup load it
         if os.path.exists(self.loc/'port_map.csv'):
             mapping = pd.read_csv(self.loc/'port_map.csv')
             self.mapping = mapping.set_index('name')['port'].fillna("")
         else:
             self.mapping = None
+
+        # if there is a config file for connecting to a raspberry pi load it
         if os.path.exists(self.loc/'rpi_config.yaml'):
             with open(self.loc/'rpi_config.yaml', 'r') as f:
                 rpi_config = yaml.safe_load(f)
@@ -44,44 +45,57 @@ class SetupGUI(QMainWindow):
         self.layout = QVBoxLayout()
         self.menu_layout = QHBoxLayout()
 
+        # load all protocols into the dropdown menu
         protocols = [ i.stem for i in (self.loc/'protocols').iterdir() ]
         self.prot_select = QComboBox()
         self.prot_select.addItems([""] + protocols)
         self.prot_select.currentIndexChanged.connect(self.change_protocol)
 
+        # create a start button for starting a protocol
         self.start_btn = QPushButton("start")
         self.start_btn.setCheckable(True)
         self.start_btn.setEnabled(False)
         self.running = False
         self.start_btn.clicked.connect(self.start_protocol)
 
+        # stop button for stopping a protocol
         self.stop_btn = QPushButton("stop")
         self.stop_btn.setEnabled(False)
         self.stop_btn.clicked.connect(self.stop_protocol)
 
+        # add elements to the layout
         self.menu_layout.addWidget(self.prot_select)
         self.menu_layout.addWidget(self.start_btn)
         self.menu_layout.addWidget(self.stop_btn)
         self.layout.addLayout(self.menu_layout)
-
         container.setLayout(self.layout)
         self.setCentralWidget(container)
 
+        # initialize the state machine as none
+        # until a protocol is selected
         self.state_machine = None
 
+        # create a timer to periodically save results
+        # when the protocol is running
         self.timer = QTimer()
         self.timer.timeout.connect(self.save)
+
+        # placeholder attributes for the save buffer and 
+        # the collection of reward modules
         self.buffer = {}
         self.reward_modules = {}
 
     def start_protocol(self):
-        self.buffer = {}
+        self.buffer = {} # clear the save buffer
+        # dialog to select a save directory
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
         self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")
+        # create the state machine
         prot = (Path("setups")/self.loc.name/'protocols'/self.prot_name).as_posix()
         setup_mod = importlib.import_module(prot.replace('/','.'))
         state_machine = getattr(setup_mod, self.prot_name)
         self.state_machine = state_machine(self)
+        # start the timer for saving
         self.timer.start(1000)
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
@@ -113,7 +127,7 @@ class SetupGUI(QMainWindow):
         self.buffer.update({datetime.now(): event})
 
     def save(self):
-        buff = pd.Series(self.buffer).rename('event').to_frame()
+        buff = pd.Series(self.buffer, dtype = str).rename('event').to_frame()
         if self.filename.exists():
             data = pd.read_csv(self.filename, index_col = 0)
             data = pd.concat(( data, buff), axis=0)
@@ -122,7 +136,15 @@ class SetupGUI(QMainWindow):
         data.to_csv(self.filename)
         self.buffer = {}
 
-class RewardWidget(QWidget, ABC):
+
+class RewardWidgetMeta(type(QWidget), ABCMeta):
+    pass
+
+class RewardWidget(QWidget, metaclass = RewardWidgetMeta):
+    """
+    abstract class to be inherited when creating widgets for reward control
+    defines an abstract method trigger_reward which must be defined in the subclass
+    """
     @abstractmethod
     def trigger_reward(amount, small = False):
         ...

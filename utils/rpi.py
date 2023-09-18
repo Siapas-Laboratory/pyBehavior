@@ -6,6 +6,12 @@ import time
 from utils.gui import RewardWidget
 
 
+class PumpConfig(QWidget):
+    def __init__(self):
+        super(PumpConfig, self).__init__()
+        #NEED control of syringe type step type, step delay and maybe a readout of position?
+
+
 class RPIRewardControl(RewardWidget):
 
     def __init__(self, client, module):
