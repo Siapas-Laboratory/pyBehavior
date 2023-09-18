@@ -7,7 +7,7 @@ from datetime import datetime
 from nidaqmx import constants, Task
 import logging
 import time
-from utils.gui import RewardWidget
+from pyBehavior.utils.gui import RewardWidget
 
 class NIDIChanThread(QThread):
     """

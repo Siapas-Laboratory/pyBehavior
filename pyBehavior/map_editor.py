@@ -83,8 +83,9 @@ class NewSetupDialog(QDialog):
 
 
 class Settings(QMainWindow):
-    def __init__(self):
+    def __init__(self, setup_dir):
         super(Settings, self).__init__()
+        self.setup_dir = setup_dir
 
         # create layout elements
         self.layout = QVBoxLayout()
@@ -92,13 +93,13 @@ class Settings(QMainWindow):
 
         # create a drop down menu of available mappings
         available_mappings = []
-        for i in Path('setups').iterdir():
+        for i in Path(setup_dir).iterdir():
             if i.is_dir():
                 if 'port_map.csv' in [j.name for j in i.iterdir()]:
                     available_mappings.append(i.stem)
         self.map_file_select = QComboBox()
         self.map_file_select.addItems(available_mappings)
-        self.map_file = os.path.join('setups',self.map_file_select.currentText(),'port_map.csv')
+        self.map_file = os.path.join(setup_dir,self.map_file_select.currentText(),'port_map.csv')
         self.mapping = pd.read_csv(self.map_file)
         self.mapping = self.mapping.set_index('port')['name'].fillna("")
         self.map_file_select.currentIndexChanged.connect(self.change_map_file)
@@ -217,7 +218,7 @@ class Settings(QMainWindow):
         dialog.exec_()
 
         if dialog.fname is not None:
-            setup_path = os.path.join('setups', dialog.fname)
+            setup_path = os.path.join(self.setup_dir, dialog.fname)
             os.mkdir(setup_path)
 
             if dialog.use_ni_cards.isChecked():
@@ -257,7 +258,7 @@ class {dialog.fname}(SetupGUI):
             self.name_inputs[i].deleteLater()
             self.del_btns[i].deleteLater()
 
-        self.map_file = f'setups/{str(self.map_file_select.currentText())}/port_map.csv'
+        self.map_file = os.path.join(self.setup_dir, str(self.map_file_select.currentText()), 'port_map.csv')
         self.mapping = pd.read_csv(self.map_file).set_index('port')['name'].fillna("")
         self.fill_body()        
 

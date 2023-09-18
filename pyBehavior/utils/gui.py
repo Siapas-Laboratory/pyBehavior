@@ -9,7 +9,7 @@ import os
 from ratBerryPi.client import Client
 from abc import ABCMeta, abstractmethod
 from collections import UserDict
-from utils.protocols import *
+from pyBehavior.utils.protocols import *
 
 class SetupGUI(QMainWindow):
     """
