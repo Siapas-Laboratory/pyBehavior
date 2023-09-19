@@ -9,7 +9,7 @@ import os
 from ratBerryPi.client import Client
 from abc import ABCMeta, abstractmethod
 from collections import UserDict
-from pyBehavior.utils.protocols import *
+from pyBehavior.protocols import *
 
 class SetupGUI(QMainWindow):
     """
@@ -92,7 +92,7 @@ class SetupGUI(QMainWindow):
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
         self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")
         # create the state machine
-        prot = ".".join(["setups", self.loc.name, "protocols", self.prot_name])
+        prot = ".".join([self.loc.name, "protocols", self.prot_name])
         setup_mod = importlib.import_module(prot)
         state_machine = getattr(setup_mod, self.prot_name)
         if not issubclass(state_machine, Protocol):

@@ -3,7 +3,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
 import time
-from pyBehavior.utils.gui import RewardWidget
+from pyBehavior.gui import RewardWidget
 
 
 class PumpConfig(QWidget):
