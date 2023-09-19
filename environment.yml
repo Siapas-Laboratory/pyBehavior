@@ -1,4 +1,4 @@
-name: ni-pyqt
+name: pyBehavior
 channels:
   - anaconda
   - defaults
@@ -12,6 +12,8 @@ dependencies:
   - seaborn
   - ipykernel
   - pyyaml
+  - h5py
+  - scipy
   - pip:
     - nidaqmx
     - python-statemachine

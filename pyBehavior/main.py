@@ -225,30 +225,29 @@ class Settings(QMainWindow):
         if dialog.fname is not None:
             setup_path = os.path.join(self.setup_dir, dialog.fname)
             os.mkdir(setup_path)
+            starter_code = f"""
+from pyBehavior.gui import *
 
+class {dialog.fname}(SetupGUI):
+    def __init__(self):
+        super({dialog.fname}, self).__init__(Path(__file__).parent.resolve())
+"""
             if dialog.use_ni_cards.isChecked():
                 new_map_file = os.path.join(setup_path, 'port_map.csv')
                 channels = self.scan_ports()
                 new_mapping = pd.Series([""]* len(channels), index = pd.Index(channels, name = "port")).rename("name")
                 new_mapping.to_frame().to_csv(new_map_file)
+                starter_code = "from pyBehavior.interfaces.ni import *\n" + starter_code
 
             if dialog.use_rpi.isChecked():
                 with open(os.path.join(setup_path, 'rpi_config.yaml'), 'w') as f:
                     f.write(f"HOST: {dialog.rpi_host.text()}\n")
                     f.write(f"PORT: {dialog.rpi_port.text()}\n")
                     f.write(f"BROADCAST_PORT: {dialog.rpi_bport.text()}")
+                starter_code = "from pyBehavior.interfaces.rpi import *\n" + starter_code
 
             os.mkdir(os.path.join(setup_path, 'protocols'))
             with open(os.path.join(setup_path, 'gui.py'), 'w') as f:
-                starter_code = f"""
-import sys
-sys.path.append("../")
-from utils.ui import *
-
-class {dialog.fname}(SetupGUI):
-    def __init__(self):
-        super({dialog.fname}, self).__init__(Path(__file__).parent.resolve())
-"""          
                 f.write(starter_code)
 
             if dialog.use_ni_cards.isChecked():
