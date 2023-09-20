@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, 
                              QWidget, QDialog, QListWidget, QDialogButtonBox,
                              QHBoxLayout,QComboBox, QLineEdit, QLabel,  QScrollArea, 
-                             QGridLayout, QCheckBox)
+                             QGridLayout, QCheckBox, QInputDialog)
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -136,6 +136,9 @@ class Settings(QMainWindow):
 
         #add the widget
         self.layout.addWidget(self.scroll)
+        self.add_btn = QPushButton('Add')
+        self.add_btn.clicked.connect(self.add_map)
+        self.layout.addWidget(self.add_btn)
         self.get_btn = QPushButton('Get All Ports')
         self.get_btn.clicked.connect(self.get_all_ports)
         self.layout.addWidget(self.get_btn)
@@ -143,7 +146,33 @@ class Settings(QMainWindow):
         container = QWidget()
         container.setLayout(self.layout)
         self.setCentralWidget(container)
-    
+
+    def add_map(self):
+        port, ok = QInputDialog().getText(self, "New Mapping", "Enter name of the new port to map:")
+        if ok:
+
+            self.mapping.loc[port] = ""
+
+            port_label = QLabel()
+            port_label.setText(port)
+            self.port_labels.append(port_label)
+
+            name_input = QLineEdit()
+            name_input.setText(self.mapping.loc[port])
+            name_input.editingFinished.connect(self.update_var_name)
+            self.name_inputs.append(name_input)
+
+            del_btn = QPushButton("del")
+            del_btn.clicked.connect(self.del_map)
+            self.del_btns.append(del_btn)
+
+            cur_len = self.body_layout.rowCount()
+            self.body_layout.addWidget(port_label, cur_len, 0)
+            self.body_layout.addWidget(name_input, cur_len, 1)
+            self.body_layout.addWidget(del_btn, cur_len, 2)
+
+            self.mapping.loc[port] = ""
+
     def fill_body(self):
         """
         fill the body of the window with label 
@@ -180,7 +209,7 @@ class Settings(QMainWindow):
                 channels += [i.name for i in dev.di_lines] + [i.name for i in dev.do_lines] + [i.name for i in dev.ai_physical_chans] + [i.name for i in dev.ao_physical_chans]
             channels = np.unique(channels).tolist()
         except nidaqmx._lib.DaqNotFoundError: # for debugging purposes if not running on the machine itself
-            channels = [" "]
+            channels = []
         return channels
 
     def get_all_ports(self):
@@ -209,8 +238,6 @@ class Settings(QMainWindow):
             self.body_layout.addWidget(name_input, i, 1)
             self.body_layout.addWidget(del_btn, i, 2)
 
-            self.mapping.loc[port] = ""
-
     def update_var_name(self):
         line = self.name_inputs.index(self.sender())
         self.mapping.iloc[line] = self.name_inputs[line].text()
@@ -235,7 +262,7 @@ class {dialog.fname}(SetupGUI):
             if dialog.use_ni_cards.isChecked():
                 new_map_file = os.path.join(setup_path, 'port_map.csv')
                 channels = self.scan_ports()
-                new_mapping = pd.Series([""]* len(channels), index = pd.Index(channels, name = "port")).rename("name")
+                new_mapping = pd.Series([""]* len(channels), dtype = str, index = pd.Index(channels, name = "port")).rename("name")
                 new_mapping.to_frame().to_csv(new_map_file)
                 starter_code = "from pyBehavior.interfaces.ni import *\n" + starter_code
 
@@ -270,7 +297,6 @@ class {dialog.fname}(SetupGUI):
 
         line = self.del_btns.index(self.sender())
         port = self.port_labels[line].text()
-        print(port)
         self.port_labels[line].deleteLater()
         del self.port_labels[line]
         self.name_inputs[line].deleteLater()
