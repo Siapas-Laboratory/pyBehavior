@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox
+from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox, QComboBox
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
@@ -15,6 +15,40 @@ class PumpConfig(QWidget):
         vlayout = QVBoxLayout()
         pump_label = QLabel(self.pump)
         vlayout.addWidget(pump_label)
+
+        self.pos_label = QLabel("Position: ")
+        vlayout.addWidget(self.pos_label)
+
+        syringe_layout = QHBoxLayout()
+        syringe_label = QLabel("Syringe Type:")
+        self.syringe_select = QComboBox()
+        self.syringe_select.addItems(["BD5mL", "BD10mL"])
+        cur_syringe = self.client.get(f"pumps['{self.pump}'].syringe.syringeType")
+        self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
+        self.syringe_select.currentIndexChanged.connect(self.change_syringe)
+
+        # need function on server side to change step type and step delay so i can control them step type from here
+
+        syringe_layout.addWidget(syringe_label)
+        syringe_layout.addWidget(self.syringe_select)
+
+        self.pos_thread = RPIPumpPosThread(self.client, self.pump)
+        self.pos_thread.pos_changed.connect(self.update_pos)
+        self.pos_thread.start()
+
+        vlayout.addLayout(syringe_layout)
+        self.setLayout(vlayout)
+
+    def update_pos(self, pos):
+        self.pos_label.setText(f"Position: {pos:.3f} cm")
+
+    def change_syringe(self):
+        args = {
+            'pump': self.pump,
+            'syringeType': self.syringe_select.currentText()
+        }
+        self.client.run_command('change_syringe', args)
+        
 
         
 
@@ -120,15 +154,16 @@ class RPIRewardControl(RewardWidget):
                 'dur': dur,
                 'volume': vol}
         
-        status = int(self.client.run_command('toggle_LED', args))
+        status = int(self.client.run_command('play_tone', args))
 
         if not status==1:
             print('error status', status)
 
     def toggle_led(self):
         led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
+        print(not led_state)
         args = {'module': self.module,
-                'on': ~led_state}
+                'on': not led_state}
         status = int(self.client.run_command('toggle_LED', args))
         if status != 1:
             led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
@@ -177,9 +212,6 @@ class RPILickThread(QThread):
         prev_licks = 0
         while True:
             try:
-                req = {'module': self.module,
-                       'plugin': 'lickometer',
-                       'prop': 'licks'}
                 licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
                 if licks!=prev_licks:
                     prev_licks = licks
@@ -187,5 +219,26 @@ class RPILickThread(QThread):
             except ValueError as e:
                 print(f"invalid read on '{self.module}'")
                 raise e
+            finally:
+                time.sleep(.005)
+
+class RPIPumpPosThread(QThread):
+    pos_changed = pyqtSignal(object)
+    def __init__(self, client, pump):
+        super(RPIPumpPosThread, self).__init__()
+        self.client = client
+        assert self.client.connected
+        self.pump = pump
+        self.pos = None
+
+    def run(self):
+        while True:
+            try:
+                pos = self.client.get(f"pumps['{self.pump}'].position")
+                if pos != self.pos:
+                    self.pos = pos
+                    self.pos_changed.emit(self.pos)
+            except ValueError as e:
+                print(f"invalid position read on '{self.pump}'")
             finally:
                 time.sleep(.005)
