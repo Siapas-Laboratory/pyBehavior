@@ -102,6 +102,7 @@ class Settings(QMainWindow):
             if i.is_dir():
                 if 'port_map.csv' in [j.name for j in i.iterdir()]:
                     available_mappings.append(i.stem)
+        
         self.map_file_select = QComboBox()
         self.map_file_select.addItems(available_mappings)
         self.map_file = os.path.join(setup_dir,self.map_file_select.currentText(),'port_map.csv')
@@ -206,9 +207,12 @@ class Settings(QMainWindow):
             system = nidaqmx.system.System.local()
             channels = []
             for dev in system.devices:
-                channels += [i.name for i in dev.di_lines] + [i.name for i in dev.do_lines] + [i.name for i in dev.ai_physical_chans] + [i.name for i in dev.ao_physical_chans]
+                channels += [i.name for i in dev.di_lines]
+                channels += [i.name for i in dev.do_lines]
+                channels += [i.name for i in dev.ai_physical_chans] 
+                channels += [i.name for i in dev.ao_physical_chans]
             channels = np.unique(channels).tolist()
-        except nidaqmx._lib.DaqNotFoundError: # for debugging purposes if not running on the machine itself
+        except nidaqmx._lib.DaqNotFoundError:
             channels = []
         return channels
 
@@ -372,7 +376,7 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--setup_dir', required = True)
+    parser.add_argument('setup_dir')
     args = parser.parse_args()
 
     window = MainWindow(args.setup_dir)

@@ -11,7 +11,6 @@ conda activate pyBehavior
 ```
 3. Run the following commands to build and install pyBehavior
 ```
-python setup.py bdist_wheel sdist
 python -m pip install .
 ```
 If you intend to use pyBehavior to interface with a ratBerryPi, follow the installation instructions for a client device [here](https://github.com/nathanielnyema/ratBerryPi#readme) while the pyBehavior environment is activated.

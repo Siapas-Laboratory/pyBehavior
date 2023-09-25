@@ -7,9 +7,18 @@ from pyBehavior.gui import RewardWidget
 
 
 class PumpConfig(QWidget):
-    def __init__(self):
+    def __init__(self, client, pump):
         super(PumpConfig, self).__init__()
-        #NEED control of syringe type step type, step delay and maybe a readout of position?
+        self.client = client
+        self.pump = pump
+
+        vlayout = QVBoxLayout()
+        pump_label = QLabel(self.pump)
+        vlayout.addWidget(pump_label)
+
+        
+
+        #NEED control of syringe type step type, step delay syringe type and maybe a readout of position?
 
 
 class RPIRewardControl(RewardWidget):
@@ -20,15 +29,16 @@ class RPIRewardControl(RewardWidget):
         self.module = module
         self.client = client
         self.name = module
-
-        if not self.client.connected:
-            self.client.connect()
-        
+    
         vlayout= QVBoxLayout()
+
         valve_label = QLabel(self.name)
         vlayout.addWidget(valve_label)
 
-        #NEED control of syringe type
+        pump_name = self.client.get(f"modules['{self.module}'].pump.name")
+        pump_label = QLabel(f"Pump: {pump_name}")
+        vlayout.addWidget(pump_label)
+
         self.lick_triggered = QCheckBox('Lick Triggered')
         vlayout.addWidget(self.lick_triggered)
         self.lick_triggered.setChecked(False)
@@ -92,10 +102,7 @@ class RPIRewardControl(RewardWidget):
         
         self.led_btn = QPushButton("Toggle LED")
         self.led_btn.setCheckable(True)
-        req = {'module': self.module,
-               'plugin': 'LED',
-               'prop': 'on'}
-        init_state = bool(self.client.get(req))
+        init_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
         self.led_btn.setChecked(init_state)
         self.led_btn.clicked.connect(self.toggle_led)
         vlayout.addWidget(self.led_btn)
@@ -119,15 +126,12 @@ class RPIRewardControl(RewardWidget):
             print('error status', status)
 
     def toggle_led(self):
-        req = {'module': self.module,
-               'plugin': 'LED',
-               'prop': 'on'}
-        led_state = bool(self.client.get(req))
+        led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
         args = {'module': self.module,
                 'on': ~led_state}
         status = int(self.client.run_command('toggle_LED', args))
         if status != 1:
-            led_state = bool(self.client.get(req))
+            led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
             self.led_btn.setChecked(led_state)
             print('error status', status)
 
@@ -150,9 +154,11 @@ class RPIRewardControl(RewardWidget):
             amount =  float(self.small_pulse_frac.text()) * float(self.amt.text())
         else:
             amount =  float(self.amt.text())
+
         args = {'module': self.module, 
                 'amount': amount,
-                'lick_triggered': self.lick_triggered.checkState()}
+                'lick_triggered': self.lick_triggered.isChecked()}
+        
         status = int(self.client.run_command("trigger_reward", args))
         if status!=1:
             print('error status', status)
@@ -174,12 +180,12 @@ class RPILickThread(QThread):
                 req = {'module': self.module,
                        'plugin': 'lickometer',
                        'prop': 'licks'}
-                licks = int(self.client.get(req))
+                licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
                 if licks!=prev_licks:
                     prev_licks = licks
                     self.state_updated.emit(licks)
             except ValueError as e:
-                print(f"invalid read on {self.module}")
+                print(f"invalid read on '{self.module}'")
                 raise e
             finally:
                 time.sleep(.005)
