@@ -27,10 +27,12 @@ class PumpConfig(QWidget):
         self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
         self.syringe_select.currentIndexChanged.connect(self.change_syringe)
 
-        # need function on server side to change step type and step delay so i can control them step type from here
+        # TODO: need function on server side to change step type and step delay so i can control them step type from here
+        # need a button to fill the lines
 
         syringe_layout.addWidget(syringe_label)
         syringe_layout.addWidget(self.syringe_select)
+        vlayout.addLayout(syringe_layout)
 
         self.pos_thread = RPIPumpPosThread(self.client, self.pump)
         self.pos_thread.pos_changed.connect(self.update_pos)
@@ -49,11 +51,6 @@ class PumpConfig(QWidget):
         }
         self.client.run_command('change_syringe', args)
         
-
-        
-
-        #NEED control of syringe type step type, step delay syringe type and maybe a readout of position?
-
 
 class RPIRewardControl(RewardWidget):
 
@@ -206,13 +203,14 @@ class RPILickThread(QThread):
         assert client.connected
         self.client = client
         self.module = module
-        print(self.module)
+        self.client.new_channel(f"{self.module}_licks")
     
     def run(self):
         prev_licks = 0
         while True:
             try:
-                licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
+                licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                            channel = f"{self.module}_licks"))
                 if licks!=prev_licks:
                     prev_licks = licks
                     self.state_updated.emit(licks)
@@ -229,16 +227,17 @@ class RPIPumpPosThread(QThread):
         self.client = client
         assert self.client.connected
         self.pump = pump
+        self.client.new_channel(self.pump)
         self.pos = None
 
     def run(self):
         while True:
             try:
-                pos = self.client.get(f"pumps['{self.pump}'].position")
+                pos = self.client.get(f"pumps['{self.pump}'].position", channel = self.pump)
                 if pos != self.pos:
                     self.pos = pos
                     self.pos_changed.emit(self.pos)
             except ValueError as e:
                 print(f"invalid position read on '{self.pump}'")
             finally:
-                time.sleep(.005)
+                time.sleep(.1)
