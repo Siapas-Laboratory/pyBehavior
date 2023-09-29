@@ -4,10 +4,11 @@ from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QL
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from datetime import datetime
-from nidaqmx import constants, Task
+from nidaqmx import constants, Task, errors
 import logging
 import time
 from pyBehavior.gui import RewardWidget
+
 
 class NIDIChanThread(QThread):
     """
@@ -23,6 +24,8 @@ class NIDIChanThread(QThread):
         super(NIDIChanThread, self).__init__()
         self.ports = ports
         self.falling_edge = falling_edge
+        self.logger = logging.getLogger()
+        # print(self.ports)
 
     def run(self):
         with Task() as task:         
@@ -40,7 +43,11 @@ class NIDIChanThread(QThread):
             def update_states(task_handle = task._handle, 
                               signal_type = constants.Signal.CHANGE_DETECTION_EVENT,
                               callback_data = 1):
-                data = pd.Series(task.read(), index = self.ports.index)
+                # self.logger.debug(datetime.now())
+                try:
+                    data = task.read()
+                except errors.DaqReadError:
+                    data = f"buff_size: {task.in_stream.input_buf_size}; {task.in_stream.avail_samp_per_chan}; {task.in_stream.change_detect_overflowed}"
                 self.state_updated.emit(data)
                 return 0
             task.register_signal_event(constants.Signal.CHANGE_DETECTION_EVENT, update_states)

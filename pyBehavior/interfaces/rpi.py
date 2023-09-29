@@ -138,6 +138,15 @@ class RPIRewardControl(RewardWidget):
         self.led_btn.clicked.connect(self.toggle_led)
         vlayout.addWidget(self.led_btn)
 
+        self.valve_btn = QPushButton("Toggle Valve")
+        self.valve_btn.setCheckable(True)
+        init_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+        self.valve_btn.setChecked(init_state)
+        self.valve_btn.clicked.connect(self.toggle_valve)
+        vlayout.addWidget(self.valve_btn)
+
+
+
         self.setLayout(vlayout)
 
 
@@ -158,13 +167,22 @@ class RPIRewardControl(RewardWidget):
 
     def toggle_led(self):
         led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
-        print(not led_state)
         args = {'module': self.module,
                 'on': not led_state}
         status = int(self.client.run_command('toggle_LED', args))
         if status != 1:
             led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
             self.led_btn.setChecked(led_state)
+            print('error status', status)
+
+    def toggle_valve(self):
+        valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+        args = {'module': self.module,
+                'open_valve': not valve_state}
+        status = int(self.client.run_command('toggle_valve', args))
+        if status != 1:
+            valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+            self.valve_btn.setChecked(valve_state)
             print('error status', status)
 
     def single_pulse(self):
@@ -189,7 +207,8 @@ class RPIRewardControl(RewardWidget):
 
         args = {'module': self.module, 
                 'amount': amount,
-                'lick_triggered': self.lick_triggered.isChecked()}
+                'lick_triggered': self.lick_triggered.isChecked(),
+                'force': True}
         
         status = int(self.client.run_command("trigger_reward", args))
         if status!=1:
