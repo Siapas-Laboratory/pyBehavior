@@ -28,6 +28,10 @@ class NIDIChanThread(QThread):
         # print(self.ports)
 
     def run(self):
+        #TODO: need to try continuous polling at a fixed sampling rate instead of change detection
+        # in the glados code they register digital input events with a digital input daemon that handles these
+        # events. Could be worth implementing this kind of an architecture
+        # one daemon with several different types of digital inputs with their own methods for being registered/polled
         with Task() as task:         
             for name, port in self.ports.items():
                 task.di_channels.add_di_chan(port, name_to_assign_to_lines = name)
@@ -43,9 +47,8 @@ class NIDIChanThread(QThread):
             def update_states(task_handle = task._handle, 
                               signal_type = constants.Signal.CHANGE_DETECTION_EVENT,
                               callback_data = 1):
-                # self.logger.debug(datetime.now())
                 try:
-                    data = task.read()
+                    data = task.read(constants.READ_ALL_AVAILABLE)
                 except errors.DaqReadError:
                     data = f"buff_size: {task.in_stream.input_buf_size}; {task.in_stream.avail_samp_per_chan}; {task.in_stream.change_detect_overflowed}"
                 self.state_updated.emit(data)
