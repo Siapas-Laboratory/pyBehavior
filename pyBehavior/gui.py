@@ -1,5 +1,5 @@
 import pandas as pd
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QThread
 from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QFileDialog
 from pathlib import Path
 from datetime import datetime
@@ -138,6 +138,18 @@ class SetupGUI(QMainWindow):
              data = buff
         data.to_csv(self.filename)
         self.buffer = {}
+
+    def init_NIDIDaemon(self, channels, fs = 1000, start = False):
+        from pyBehavior.interfaces import NIDIDaemon
+        self.di_daemon = NIDIDaemon(self, fs)
+        for i, v in channels.items():
+            self.di_daemon.register(v, i)
+        self.di_daemon_thread = QThread()
+        self.di_daemon.moveToThread(self.di_daemon_thread)
+        self.di_daemon_thread.started.connect(self.di_daemon.run)
+        self.di_daemon.finished.connect(self.di_daemon_thread.quit)
+        if start:
+            self.di_daemon_thread.start()
 
 
 class RewardWidgetMeta(type(QWidget), ABCMeta):
