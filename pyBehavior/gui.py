@@ -133,7 +133,7 @@ class SetupGUI(QMainWindow):
         buff = pd.Series(self.buffer, dtype = str).rename('event').to_frame()
         if self.filename.exists():
             data = pd.read_csv(self.filename, index_col = 0)
-            data = pd.concat(( data, buff), axis=0)
+            data = pd.concat((data, buff), axis=0)
         else:
              data = buff
         data.to_csv(self.filename)
@@ -157,5 +157,5 @@ class ModuleDict(UserDict):
         if issubclass(type(value), RewardWidget):
             super().__setitem__(key, value)
         else:
-            raise ValueError("entries in ModuleDict must be instances of subclasses of utils.gui.RewardWidget")
+            raise ValueError("entries in ModuleDict must be instances of subclasses of gui.RewardWidget")
     

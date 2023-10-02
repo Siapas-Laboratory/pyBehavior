@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QSpinBox, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
@@ -8,6 +9,58 @@ from nidaqmx import constants, Task, errors
 import logging
 import time
 from pyBehavior.gui import RewardWidget
+
+
+
+
+
+class NIDIChan:
+
+    rising_edge = pyqtSignal(object)
+    falling_edge = pyqtSignal(object)
+
+    def __init__(self, channel, name):
+        self.channel = channel
+        self.name = name
+
+
+class NIDIDaemon(QThread):
+
+    rising_edge = pyqtSignal(object)
+    falling_edge = pyqtSignal(object)
+
+    def __init__(self, fs):
+        super(NIDIDaemon, self).__init__()
+        self.task = None
+        self.fs = fs
+        self.state = None
+        self.channel_names = []
+        self.channels = pd.Series([], dtype = object)
+
+    def register_channel(self, channel, name):
+        if not self.nidaqmx_task:
+            self.nidaqmx_task = Task()
+        self.nidaqmx_task.di_channels.add_di_chan(channel, name_to_assign_to_lines = name)
+        self.channel_names.append(name)
+        channel = NIDIChan(channel, name)
+        self.channels.loc[name] = channel
+        return channel
+    
+    def run(self):
+        if self.nidaqmx_task:
+            try:
+                while True:
+                    _state = pd.Series(self.task.read(), 
+                                       index = self.channels)
+                    for i in self.channels.loc[_state > self.state]:
+                        i.rising_edge.emit()
+                    for i in self.channels.loc[_state < self.state]:
+                        i.falling_edge.emit()
+                    time.sleep(1/self.fs)
+            except:
+                # need a cleaner way of closing the task
+                # as this is i don't think this will be run
+                self.task.close()
 
 
 class NIDIChanThread(QThread):
