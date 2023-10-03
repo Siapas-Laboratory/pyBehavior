@@ -1,5 +1,5 @@
 import pandas as pd
-from PyQt5.QtCore import QTimer, QThread
+from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QFileDialog
 from pathlib import Path
 from datetime import datetime
@@ -10,6 +10,7 @@ from ratBerryPi.client import Client
 from abc import ABCMeta, abstractmethod
 from collections import UserDict
 from pyBehavior.protocols import *
+import logging
 
 class SetupGUI(QMainWindow):
     """
@@ -76,21 +77,40 @@ class SetupGUI(QMainWindow):
         # until a protocol is selected
         self.state_machine = None
 
-        # create a timer to periodically save results
-        # when the protocol is running
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.save)
-
-        # placeholder attributes for the save buffer and 
+        # placeholder attributes for
         # the collection of reward modules
-        self.buffer = {}
         self.reward_modules = ModuleDict()
+
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
+
+        # placeholder for file handler
+        self.log_fh = None
+
+        # create handler for logging to the console
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        # create formatter and add it to the handler
+        self.formatter = logging.Formatter('%(asctime)s, %(levelname)s, %(message)s',
+                                           "%Y-%m-%d %H:%M:%S")
+        ch.setFormatter(self.formatter)
+        # add the handlers to the logger
+        self.logger.addHandler(ch)
 
     def start_protocol(self):
         self.buffer = {} # clear the save buffer
         # dialog to select a save directory
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
-        self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.csv")
+        self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.log")
+
+        # replace file handler
+        if self.log_fh:
+            self.logger.removeHandler(self.log_fh)
+        self.log_fh = logging.FileHandler(self.filename)
+        self.log_fh.setLevel(logging.DEBUG)
+        self.log_fh.setFormatter(self.formatter)
+        self.logger.addHandler(self.log_fh)
+
         # create the state machine
         prot = ".".join([self.loc.name, "protocols", self.prot_name])
         setup_mod = importlib.import_module(prot)
@@ -98,17 +118,23 @@ class SetupGUI(QMainWindow):
         if not issubclass(state_machine, Protocol):
             raise ValueError("protocols must be subclasses of utils.protocols.Protocol")
         self.state_machine = state_machine(self)
-        # start the timer for saving
-        self.timer.start(1000)
+
+        # update gui element accessibility
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.running = True
         self.prot_select.setEnabled(False)
+
+        # raise flag saying that we're running
+        self.running = True
 
     def stop_protocol(self):
         self.running = False
-        self.timer.stop()
-        self.save()
+
+        # remove file handler
+        self.logger.removeHandler(self.log_fh)
+        self.log_fh = None
+
+        # update gui elements
         self.start_btn.setEnabled(True)
         self.start_btn.toggle()
         self.prot_select.setEnabled(True)
@@ -127,21 +153,11 @@ class SetupGUI(QMainWindow):
         self.reward_modules[module].trigger_reward(small)
 
     def log(self, event):
-        self.buffer.update({datetime.now(): event})
-
-    def save(self):
-        buff = pd.Series(self.buffer, dtype = str).rename('event').to_frame()
-        if self.filename.exists():
-            data = pd.read_csv(self.filename, index_col = 0)
-            data = pd.concat((data, buff), axis=0)
-        else:
-             data = buff
-        data.to_csv(self.filename)
-        self.buffer = {}
+        self.logger.info(event)
 
     def init_NIDIDaemon(self, channels, fs = 1000, start = False):
-        from pyBehavior.interfaces import NIDIDaemon
-        self.di_daemon = NIDIDaemon(self, fs)
+        from pyBehavior.interfaces.ni import NIDIDaemon
+        self.di_daemon = NIDIDaemon(fs)
         for i, v in channels.items():
             self.di_daemon.register(v, i)
         self.di_daemon_thread = QThread()
@@ -150,6 +166,14 @@ class SetupGUI(QMainWindow):
         self.di_daemon.finished.connect(self.di_daemon_thread.quit)
         if start:
             self.di_daemon_thread.start()
+        return self.di_daemon, self.di_daemon_thread
+    
+    def closeEvent(self, event):
+        if hasattr(self, 'di_daemon'):
+            if self.di_daemon.running:
+                self.di_daemon.stop()
+                self.di_daemon_thread.quit()
+        event.accept()
 
 
 class RewardWidgetMeta(type(QWidget), ABCMeta):

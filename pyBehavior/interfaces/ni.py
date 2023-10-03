@@ -10,107 +10,73 @@ import logging
 import time
 from pyBehavior.gui import RewardWidget
 
-
-
-
-
 class NIDIChan(QObject):
 
-    rising_edge = pyqtSignal(object)
-    falling_edge = pyqtSignal(object)
-
-    def __init__(self, channel, name):
-        self.channel = channel
-        self.name = name
-
+    rising_edge = pyqtSignal(str, name = 'risingEdge')
+    falling_edge = pyqtSignal(str, name = 'fallingEdge')
 
 class NIDIDaemon(QObject):
 
-    finished = pyqtSignal(object)
+    finished = pyqtSignal(int, name = "finished")
 
-    def __init__(self, parent, fs = 1000):
+    def __init__(self, fs = 1000):
         super(NIDIDaemon, self).__init__()
         self.fs = fs
-        self.parent = parent
-
-        self.task = None
+        self.tasks = {}
         self.channels = pd.Series([], dtype = object)
-
-        self.parent.closeEvent.connect(self.stop)
+        self.running = False
+        self.status = 0
 
     def register(self, channel, name):
-        if not self.task:
-            self.task = Task()
-        self.task.di_channels.add_di_chan(channel, name_to_assign_to_lines = name)
-        channel = NIDIChan(channel, name)
-        self.channels.loc[name] = channel
+
+        dev = channel.split('/')[0]
+        if dev not in self.tasks:
+            self.tasks[dev] = {'task_handle': Task(),
+                               'channel_names': [name]}
+        else:
+            self.tasks[dev]['channel_names'].append(name)
+        self.tasks[dev]['task_handle'].di_channels.add_di_chan(channel, name_to_assign_to_lines = name)
+        self.channels.loc[name] =  NIDIChan()
     
     def run(self):
-        if self.task:
-            self.state = pd.Series(self.task.read(), 
-                                    index = self.channels.index)
-            while self.running:
-                _state = pd.Series(self.task.read(), 
-                                    index = self.channels.index)
-                for i in self.channels.loc[_state > self.state]:
-                    i.rising_edge.emit()
-                for i in self.channels.loc[_state < self.state]:
-                    i.falling_edge.emit()
-                time.sleep(1/self.fs)
-            self.task.close()
-        self.finished.emit()
+        self.running = True
+        if len(self.tasks)>0:
+            # initialize all states as false
+            self.state = pd.Series([False]*self.channels.size,
+                                   index = self.channels.index)
+            try:
+                while self.running:
+                    _state = self.read()
+                    for i in self.channels.loc[_state > self.state].index:
+                        self.channels.loc[i].rising_edge.emit(i)
+                    for i in self.channels.loc[_state < self.state].index:
+                        self.channels.loc[i].falling_edge.emit(i)
+                    self.state = _state
+                    time.sleep(1/self.fs)
+            except:
+                self.stop()
+                self.status = 2
+            finally:
+                self.status = 1
+        self.finished.emit(self.status)
+    
+    def read(self):
+        state = {}
+        for dev in self.tasks:
+            names = self.tasks[dev]['channel_names']
+            handle = self.tasks[dev]['task_handle']
+            if len(names)>1:
+                state.update(dict(zip(names, handle.read()))), 
+            else:
+                state.update({names[0]: handle.read()})
+
+        return pd.Series(state)
 
     def stop(self):
         self.running = False
+        for dev in self.tasks:
+            self.tasks[dev]['task_handle'].close()
 
-# class NIDIChanThread(QThread):
-#     """
-#     PYQT compatible thread for continuously asynchronously monitoring NI digital input ports
-#     using change detection timing. The thread will emit a custom signal called state_updated 
-#     whenever a change detection event occurs (rising and falling edge). the signal will contain
-#     a pandas series mapping ports to their current state
-#     """
-    
-#     state_updated = pyqtSignal(object)
-
-#     def __init__(self, ports, falling_edge = True):
-#         super(NIDIChanThread, self).__init__()
-#         self.ports = ports
-#         self.falling_edge = falling_edge
-#         self.logger = logging.getLogger()
-#         # print(self.ports)
-
-#     def run(self):
-#         #TODO: need to try continuous polling at a fixed sampling rate instead of change detection
-#         # in the glados code they register digital input events with a digital input daemon that handles these
-#         # events. Could be worth implementing this kind of an architecture
-#         # one daemon with several different types of digital inputs with their own methods for being registered/polled
-#         with Task() as task:         
-#             for name, port in self.ports.items():
-#                 task.di_channels.add_di_chan(port, name_to_assign_to_lines = name)
-#             port_str = ', '.join(self.ports.tolist())
-#             if self.falling_edge:
-#                 task.timing.cfg_change_detection_timing(rising_edge_chan = port_str, 
-#                                                         falling_edge_chan = port_str,
-#                                                         sample_mode = constants.AcquisitionType.CONTINUOUS)
-#             else:
-#                 task.timing.cfg_change_detection_timing(rising_edge_chan = port_str, 
-#                                                         sample_mode = constants.AcquisitionType.CONTINUOUS)
-
-#             def update_states(task_handle = task._handle, 
-#                               signal_type = constants.Signal.CHANGE_DETECTION_EVENT,
-#                               callback_data = 1):
-#                 try:
-#                     data = task.read(constants.READ_ALL_AVAILABLE)
-#                 except errors.DaqReadError:
-#                     data = f"buff_size: {task.in_stream.input_buf_size}; {task.in_stream.avail_samp_per_chan}; {task.in_stream.change_detect_overflowed}"
-#                 self.state_updated.emit(data)
-#                 return 0
-#             task.register_signal_event(constants.Signal.CHANGE_DETECTION_EVENT, update_states)
-#             task.start()
-#             logging.debug(f"beam thread started")
-#             while True:
-#                 time.sleep(.1)
 
 def digital_write(port, value):
     with Task() as task:

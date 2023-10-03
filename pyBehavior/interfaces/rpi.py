@@ -7,6 +7,7 @@ from pyBehavior.gui import RewardWidget
 
 
 class PumpConfig(QWidget):
+
     def __init__(self, client, pump):
         super(PumpConfig, self).__init__()
         self.client = client
@@ -34,8 +35,8 @@ class PumpConfig(QWidget):
         syringe_layout.addWidget(self.syringe_select)
         vlayout.addLayout(syringe_layout)
 
-        self.pos_thread = RPIPumpPosThread(self.client, self.pump)
-        self.pos_thread.pos_changed.connect(self.update_pos)
+        self.pos_thread = PumpConfig.RPIPumpPosThread(self.client, self.pump)
+        self.pos_thread.pos_updated.connect(self.update_pos)
         self.pos_thread.start()
 
         vlayout.addLayout(syringe_layout)
@@ -50,6 +51,28 @@ class PumpConfig(QWidget):
             'syringeType': self.syringe_select.currentText()
         }
         self.client.run_command('change_syringe', args)
+
+    class RPIPumpPosThread(QThread):
+        pos_updated = pyqtSignal(object)
+        def __init__(self, client, pump):
+            super(PumpConfig.RPIPumpPosThread, self).__init__()
+            self.client = client
+            assert self.client.connected
+            self.pump = pump
+            self.client.new_channel(self.pump)
+            self.pos = None
+
+        def run(self):
+            while True:
+                try:
+                    pos = self.client.get(f"pumps['{self.pump}'].position", channel = self.pump)
+                    if pos != self.pos:
+                        self.pos = pos
+                        self.pos_updated.emit(self.pos)
+                except ValueError as e:
+                    print(f"invalid position read on '{self.pump}'")
+                finally:
+                    time.sleep(.1)
         
 
 class RPIRewardControl(RewardWidget):
@@ -216,7 +239,7 @@ class RPIRewardControl(RewardWidget):
 
 
 class RPILickThread(QThread):
-    state_updated = pyqtSignal(object)
+    lick_num_updated = pyqtSignal(object)
     def __init__(self, client, module):
         super(RPILickThread, self).__init__()
         assert client.connected
@@ -232,31 +255,9 @@ class RPILickThread(QThread):
                                             channel = f"{self.module}_licks"))
                 if licks!=prev_licks:
                     prev_licks = licks
-                    self.state_updated.emit(licks)
+                    self.lick_num_updated.emit(licks)
             except ValueError as e:
                 print(f"invalid read on '{self.module}'")
                 raise e
             finally:
                 time.sleep(.005)
-
-class RPIPumpPosThread(QThread):
-    pos_changed = pyqtSignal(object)
-    def __init__(self, client, pump):
-        super(RPIPumpPosThread, self).__init__()
-        self.client = client
-        assert self.client.connected
-        self.pump = pump
-        self.client.new_channel(self.pump)
-        self.pos = None
-
-    def run(self):
-        while True:
-            try:
-                pos = self.client.get(f"pumps['{self.pump}'].position", channel = self.pump)
-                if pos != self.pos:
-                    self.pos = pos
-                    self.pos_changed.emit(self.pos)
-            except ValueError as e:
-                print(f"invalid position read on '{self.pump}'")
-            finally:
-                time.sleep(.1)
