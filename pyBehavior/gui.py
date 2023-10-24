@@ -91,7 +91,7 @@ class SetupGUI(QMainWindow):
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)
         # create formatter and add it to the handler
-        self.formatter = logging.Formatter('%(asctime)s, %(levelname)s, %(message)s',
+        self.formatter = logging.Formatter('%(asctime)s.%(msecs)03d, %(levelname)s, %(message)s',
                                            "%Y-%m-%d %H:%M:%S")
         ch.setFormatter(self.formatter)
         # add the handlers to the logger

@@ -93,7 +93,7 @@ class RPIRewardControl(RewardWidget):
         pump_label = QLabel(f"Pump: {pump_name}")
         vlayout.addWidget(pump_label)
 
-        self.lick_triggered = QCheckBox('Lick Triggered')
+        self.lick_triggered = QCheckBox('Triggered')
         vlayout.addWidget(self.lick_triggered)
         self.lick_triggered.setChecked(False)
 
@@ -217,7 +217,7 @@ class RPIRewardControl(RewardWidget):
     def pulse(self, amount):
         args = {'module': self.module, 
                 'amount': amount,
-                'lick_triggered': False}
+                'triggered': False}
         status = int(self.client.run_command("trigger_reward", args))
         if status != 1: 
             print('error status', status)
@@ -230,7 +230,7 @@ class RPIRewardControl(RewardWidget):
 
         args = {'module': self.module, 
                 'amount': amount,
-                'lick_triggered': self.lick_triggered.isChecked(),
+                'triggered': self.lick_triggered.isChecked(),
                 'force': True}
         
         status = int(self.client.run_command("trigger_reward", args))
