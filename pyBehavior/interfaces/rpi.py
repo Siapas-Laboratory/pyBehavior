@@ -50,14 +50,13 @@ class PumpConfig(QWidget):
             'pump': self.pump,
             'syringeType': self.syringe_select.currentText()
         }
-        self.client.run_command('change_syringe', args)
+        self.client.run_command('change_syringe', args, channel = 'run')
 
     class RPIPumpPosThread(QThread):
         pos_updated = pyqtSignal(object)
         def __init__(self, client, pump):
             super(PumpConfig.RPIPumpPosThread, self).__init__()
             self.client = client
-            assert self.client.connected
             self.pump = pump
             self.client.new_channel(self.pump)
             self.pos = None
@@ -183,17 +182,17 @@ class RPIRewardControl(RewardWidget):
                 'dur': dur,
                 'volume': vol}
         
-        status = int(self.client.run_command('play_tone', args))
+        status = self.client.run_command('play_tone', args, channel = 'run')
 
-        if not status==1:
+        if not status=='SUCCESS\n':
             print('error status', status)
 
     def toggle_led(self):
         led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
         args = {'module': self.module,
                 'on': not led_state}
-        status = int(self.client.run_command('toggle_LED', args))
-        if status != 1:
+        status = self.client.run_command('toggle_LED', args, channel = 'run')
+        if not status=='SUCCESS\n':
             led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
             self.led_btn.setChecked(led_state)
             print('error status', status)
@@ -202,8 +201,8 @@ class RPIRewardControl(RewardWidget):
         valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
         args = {'module': self.module,
                 'open_valve': not valve_state}
-        status = int(self.client.run_command('toggle_valve', args))
-        if status != 1:
+        status = self.client.run_command('toggle_valve', args, channel = 'run')
+        if not status=='SUCCESS\n':
             valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
             self.valve_btn.setChecked(valve_state)
             print('error status', status)
@@ -218,8 +217,8 @@ class RPIRewardControl(RewardWidget):
         args = {'module': self.module, 
                 'amount': amount,
                 'triggered': False}
-        status = int(self.client.run_command("trigger_reward", args))
-        if status != 1: 
+        status = self.client.run_command("trigger_reward", args, channel = 'run')
+        if not status=='SUCCESS\n':
             print('error status', status)
 
     def trigger_reward(self, small = False):
@@ -233,8 +232,8 @@ class RPIRewardControl(RewardWidget):
                 'triggered': self.lick_triggered.isChecked(),
                 'force': True}
         
-        status = int(self.client.run_command("trigger_reward", args))
-        if status!=1:
+        status = self.client.run_command("trigger_reward", args, channel = 'run')
+        if not status=='SUCCESS\n':
             print('error status', status)
 
 
@@ -242,7 +241,6 @@ class RPILickThread(QThread):
     lick_num_updated = pyqtSignal(object)
     def __init__(self, client, module):
         super(RPILickThread, self).__init__()
-        assert client.connected
         self.client = client
         self.module = module
         self.client.new_channel(f"{self.module}_licks")

@@ -39,9 +39,8 @@ class SetupGUI(QMainWindow):
             with open(self.loc/'rpi_config.yaml', 'r') as f:
                 rpi_config = yaml.safe_load(f)
             self.client = Client(rpi_config['HOST'], 
-                                 rpi_config['PORT'], 
-                                 rpi_config['BROADCAST_PORT'])
-            self.client.connect()
+                                 rpi_config['PORT'])
+            self.client.new_channel("run")
 
         container = QWidget()
         self.layout = QVBoxLayout()
@@ -104,8 +103,6 @@ class SetupGUI(QMainWindow):
         self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.log")
 
         # replace file handler
-        if self.log_fh:
-            self.logger.removeHandler(self.log_fh)
         self.log_fh = logging.FileHandler(self.filename)
         self.log_fh.setLevel(logging.DEBUG)
         self.log_fh.setFormatter(self.formatter)
@@ -132,8 +129,7 @@ class SetupGUI(QMainWindow):
 
         # remove file handler
         self.logger.removeHandler(self.log_fh)
-        self.log_fh = None
-
+        
         # update gui elements
         self.start_btn.setEnabled(True)
         self.start_btn.toggle()

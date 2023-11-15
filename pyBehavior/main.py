@@ -46,13 +46,6 @@ class NewSetupDialog(QDialog):
         port_layout.addWidget(self.rpi_port)
         rpi_dialog_layout.addLayout(port_layout)
 
-        bport_layout = QHBoxLayout()
-        bport_label = QLabel('BROADCAST PORT')
-        self.rpi_bport = QLineEdit()
-        bport_layout.addWidget(bport_label)
-        bport_layout.addWidget(self.rpi_bport)
-        rpi_dialog_layout.addLayout(bport_layout)
-
         self.rpi_dialog = QWidget()
         self.rpi_dialog.setLayout(rpi_dialog_layout)
         self.rpi_dialog.hide()
@@ -274,7 +267,6 @@ class {dialog.fname}(SetupGUI):
                 with open(os.path.join(setup_path, 'rpi_config.yaml'), 'w') as f:
                     f.write(f"HOST: {dialog.rpi_host.text()}\n")
                     f.write(f"PORT: {dialog.rpi_port.text()}\n")
-                    f.write(f"BROADCAST_PORT: {dialog.rpi_bport.text()}")
                 starter_code = "from pyBehavior.interfaces.rpi import *\n" + starter_code
 
             os.mkdir(os.path.join(setup_path, 'protocols'))
