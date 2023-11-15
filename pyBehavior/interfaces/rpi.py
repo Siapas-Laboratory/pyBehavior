@@ -216,7 +216,9 @@ class RPIRewardControl(RewardWidget):
     def pulse(self, amount):
         args = {'module': self.module, 
                 'amount': amount,
-                'triggered': False}
+                'triggered': self.lick_triggered.isChecked(),
+                'force': True}
+        
         status = self.client.run_command("trigger_reward", args, channel = 'run')
         if not status=='SUCCESS\n':
             print('error status', status)
@@ -226,15 +228,7 @@ class RPIRewardControl(RewardWidget):
             amount =  float(self.small_pulse_frac.text()) * float(self.amt.text())
         else:
             amount =  float(self.amt.text())
-
-        args = {'module': self.module, 
-                'amount': amount,
-                'triggered': self.lick_triggered.isChecked(),
-                'force': True}
-        
-        status = self.client.run_command("trigger_reward", args, channel = 'run')
-        if not status=='SUCCESS\n':
-            print('error status', status)
+        self.pulse(amount)
 
 
 class RPILickThread(QThread):
