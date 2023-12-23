@@ -8,10 +8,11 @@ from pyBehavior.gui import RewardWidget
 
 class PumpConfig(QWidget):
 
-    def __init__(self, client, pump):
+    def __init__(self, client, pump, modules = None):
         super(PumpConfig, self).__init__()
         self.client = client
         self.pump = pump
+        self.modules = modules
 
         vlayout = QVBoxLayout()
         pump_label = QLabel(self.pump)
@@ -35,12 +36,42 @@ class PumpConfig(QWidget):
         syringe_layout.addWidget(self.syringe_select)
         vlayout.addLayout(syringe_layout)
 
+        self.auto_fill_btn = QPushButton("Toggle Auto-Fill")
+        self.auto_fill_btn.setCheckable(True)
+        init_state = bool(self.client.get(f"auto_fill"))
+        self.auto_fill_btn.setChecked(init_state)
+        self.auto_fill_btn.clicked.connect(self.toggle_auto_fill)
+        vlayout.addWidget(self.auto_fill_btn)
+
+        self.fill_btn = QPushButton("Fill Lines")
+        self.fill_btn.clicked.connect(self.fill_lines)
+        vlayout.addWidget(self.fill_btn)
+
+        self.calibrate_btn = QPushButton("Calibrate")
+        self.calibrate_btn.clicked.connect(self.calibrate)
+        vlayout.addWidget(self.calibrate_btn)
+
         self.pos_thread = PumpConfig.RPIPumpPosThread(self.client, self.pump)
         self.pos_thread.pos_updated.connect(self.update_pos)
         self.pos_thread.start()
 
         vlayout.addLayout(syringe_layout)
         self.setLayout(vlayout)
+
+    def calibrate(self):
+        self.client.run_command('calibrate', {'pump': self.pump}, channel = 'run')
+
+
+    def fill_lines(self):
+        self.client.run_command('fill_lines', {'modules': self.modules}, channel = 'run')
+
+    def toggle_auto_fill(self):
+        args = {
+            'on': not bool(self.client.get(f"auto_fill"))
+        }
+        self.client.run_command('toggle_auto_fill', args, channel = 'run')
+        time.sleep(.1)
+        self.auto_fill_btn.setChecked(bool(self.client.get(f"auto_fill")))
 
     def update_pos(self, pos):
         self.pos_label.setText(f"Position: {pos:.3f} cm")
