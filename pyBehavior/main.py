@@ -205,7 +205,7 @@ class Settings(QMainWindow):
                 channels += [i.name for i in dev.ai_physical_chans] 
                 channels += [i.name for i in dev.ao_physical_chans]
             channels = np.unique(channels).tolist()
-        except nidaqmx._lib.DaqNotFoundError:
+        except (nidaqmx._lib.DaqNotFoundError, nidaqmx.errors.DaqNotSupportedError):
             channels = []
         return channels
 
