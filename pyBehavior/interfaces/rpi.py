@@ -47,6 +47,25 @@ class PumpConfig(QWidget):
         self.fill_btn.clicked.connect(self.fill_lines)
         vlayout.addWidget(self.fill_btn)
 
+        push_res_label = QLabel("Push To Reservoir")
+        vlayout.addWidget(push_res_label)
+        push_res_layout = QHBoxLayout()
+        amt_label = QLabel("Amount")
+        self.push_amt = QLineEdit()
+        self.push_amt.setValidator(QDoubleValidator())
+        self.push_amt.setText("2")
+        self.push_res_btn = QPushButton("Push")
+        self.push_res_btn.clicked.connect(self.push_to_res)
+        push_res_layout.addWidget(amt_label)
+        push_res_layout.addWidget(self.push_amt)
+        push_res_layout.addWidget(self.push_res_btn)
+        vlayout.addLayout(push_res_layout)
+
+        self.empty_btn = QPushButton("Empty Lines")
+        self.empty_btn.clicked.connect(self.empty_lines)
+        vlayout.addWidget(self.empty_btn)
+
+
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.clicked.connect(self.calibrate)
         vlayout.addWidget(self.calibrate_btn)
@@ -65,6 +84,9 @@ class PumpConfig(QWidget):
     def fill_lines(self):
         self.client.run_command('fill_lines', {'modules': self.modules}, channel = 'run')
 
+    def empty_lines(self):
+        self.client.run_command('empty_lines', {}, channel = 'run')
+
     def toggle_auto_fill(self):
         args = {
             'on': not bool(self.client.get(f"auto_fill"))
@@ -73,9 +95,6 @@ class PumpConfig(QWidget):
         time.sleep(.1)
         self.auto_fill_btn.setChecked(bool(self.client.get(f"auto_fill")))
 
-    def update_pos(self, pos):
-        self.pos_label.setText(f"Position: {pos:.3f} cm")
-
     def change_syringe(self):
         args = {
             'pump': self.pump,
@@ -83,6 +102,16 @@ class PumpConfig(QWidget):
         }
         self.client.run_command('change_syringe', args, channel = 'run')
 
+    def push_to_res(self):
+        args = {
+            'pump': self.pump,
+            'amount': float(self.push_amt.text())
+        }
+        self.client.run_command('push_to_reservoir', args, channel = 'run')
+
+    def update_pos(self, pos):
+        self.pos_label.setText(f"Position: {pos:.3f} cm")
+        
     class RPIPumpPosThread(QThread):
         pos_updated = pyqtSignal(object)
         def __init__(self, client, pump):
