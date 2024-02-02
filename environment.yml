@@ -1,7 +1,4 @@
 name: pyBehavior
-channels:
-  - anaconda
-  - defaults
 dependencies:
   - python
   - pyqt
@@ -10,10 +7,12 @@ dependencies:
   - pandas
   - matplotlib
   - seaborn
-  - ipykernel
+  - anaconda::ipykernel
   - pyyaml
   - h5py
   - scipy
   - pip:
     - nidaqmx
     - python-statemachine
+    - paramiko
+    - scp

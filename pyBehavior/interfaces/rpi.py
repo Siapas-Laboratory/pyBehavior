@@ -24,7 +24,7 @@ class PumpConfig(QWidget):
         syringe_layout = QHBoxLayout()
         syringe_label = QLabel("Syringe Type:")
         self.syringe_select = QComboBox()
-        self.syringe_select.addItems(["BD5mL", "BD10mL"])
+        self.syringe_select.addItems(["BD5mL", "BD10mL", "BD30mL"])
         cur_syringe = self.client.get(f"pumps['{self.pump}'].syringe.syringeType")
         self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
         self.syringe_select.currentIndexChanged.connect(self.change_syringe)
@@ -152,6 +152,17 @@ class RPIRewardControl(RewardWidget):
         pump_label = QLabel(f"Pump: {pump_name}")
         vlayout.addWidget(pump_label)
 
+
+        post_delay_layout = QHBoxLayout()
+        post_delay_layout.addWidget(QLabel("Post Reward Delay (s): "))
+        self.post_delay = QLineEdit()
+        self.post_delay.setValidator(QDoubleValidator())
+        self.post_delay.setText(str(self.client.get(f"modules['{self.module}'].post_delay")))
+        self.post_delay.editingFinished.connect(self.update_post_delay)
+        post_delay_layout.addWidget(self.post_delay)
+        vlayout.addLayout(post_delay_layout)
+
+
         self.lick_triggered = QCheckBox('Triggered')
         vlayout.addWidget(self.lick_triggered)
         self.lick_triggered.setChecked(False)
@@ -231,6 +242,10 @@ class RPIRewardControl(RewardWidget):
 
         self.setLayout(vlayout)
 
+    def update_post_delay(self):
+        args = {'module': self.module,
+                'post_delay': float(self.post_delay.text())}
+        self.client.run_command('update_post_delay', args, channel = 'run')
 
     def play_tone(self):
         freq = float(self.tone_freq.text())

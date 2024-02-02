@@ -11,6 +11,8 @@ from abc import ABCMeta, abstractmethod
 from collections import UserDict
 from pyBehavior.protocols import *
 import logging
+import paramiko
+from scp import SCPClient
 
 class SetupGUI(QMainWindow):
     """
@@ -37,10 +39,13 @@ class SetupGUI(QMainWindow):
         # if there is a config file for connecting to a raspberry pi load it
         if os.path.exists(self.loc/'rpi_config.yaml'):
             with open(self.loc/'rpi_config.yaml', 'r') as f:
-                rpi_config = yaml.safe_load(f)
-            self.client = Client(rpi_config['HOST'], 
-                                 rpi_config['PORT'])
+                self.rpi_config = yaml.safe_load(f)
+            self.client = Client(self.rpi_config['HOST'], 
+                                 self.rpi_config['PORT'])
             self.client.new_channel("run")
+            self.has_rpi = True
+        else:
+            self.has_rpi = False
 
         container = QWidget()
         self.layout = QVBoxLayout()
@@ -115,6 +120,7 @@ class SetupGUI(QMainWindow):
         if not issubclass(state_machine, Protocol):
             raise ValueError("protocols must be subclasses of utils.protocols.Protocol")
         self.state_machine = state_machine(self)
+        if self.has_rpi: self.client.run_command('record', channel = 'run')
 
         # update gui element accessibility
         self.start_btn.setEnabled(False)
@@ -126,7 +132,16 @@ class SetupGUI(QMainWindow):
 
     def stop_protocol(self):
         self.running = False
-
+        if self.has_rpi: 
+            rpi_data_path = self.client.get('data_path')
+            ssh_client = paramiko.SSHClient()
+            ssh_client.load_system_host_keys()
+            ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh_client.connect(self.client.host, username = self.rpi_config['USER'], look_for_keys = True)
+            scp_client = SCPClient(ssh_client.get_transport())
+            scp_client.get(rpi_data_path, self.filename.parent.as_posix())
+            self.logger.info(f"rpi logs saved at: {self.client.get('data_path')}")
+            self.client.run_command('stop_recording', channel = 'run')
         # remove file handler
         self.logger.removeHandler(self.log_fh)
         
