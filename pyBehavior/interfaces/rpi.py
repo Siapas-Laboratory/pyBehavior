@@ -1,12 +1,12 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox, QComboBox
+from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox, QComboBox, QFrame
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
 
 
-class PumpConfig(QWidget):
+class PumpConfig(QFrame):
 
     def __init__(self, client, pump, modules = None):
         super(PumpConfig, self).__init__()
@@ -73,6 +73,9 @@ class PumpConfig(QWidget):
         self.pos_thread = PumpConfig.RPIPumpPosThread(self.client, self.pump)
         self.pos_thread.pos_updated.connect(self.update_pos)
         self.pos_thread.start()
+
+        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
+        self.setLineWidth(1)
 
         vlayout.addLayout(syringe_layout)
         self.setLayout(vlayout)
@@ -238,7 +241,8 @@ class RPIRewardControl(RewardWidget):
         self.valve_btn.clicked.connect(self.toggle_valve)
         vlayout.addWidget(self.valve_btn)
 
-
+        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
+        self.setLineWidth(2)
 
         self.setLayout(vlayout)
 
