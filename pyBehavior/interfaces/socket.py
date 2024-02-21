@@ -71,3 +71,38 @@ class PositionThread(QThread):
                 pos = weighted_pos.sum(axis=0)/np.array(self.conf_buffer).sum(axis=0)[:,None]
                 pos = pos.mean(axis=0).tolist()
                 self.new_position.emit(pos[::-1])
+
+
+class EventstringSender(QFrame):
+    def __init__(self, ip:str = socket.gethostbyname(socket.gethostname()), port:int = 2345):
+        super(EventstringSender, self).__init__()
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Eventstring Destination"))
+        port_layout = QHBoxLayout()
+        ip_label = QLabel(f"IP: ")
+        self.ip = QLineEdit()
+        self.ip.setText(ip)
+        self.port = QLineEdit()
+        self.port.setValidator(QDoubleValidator())
+        self.port.setText(f"{port}")
+
+        port_layout.addWidget(ip_label)
+        port_layout.addWidget(self.ip)
+        port_layout.addWidget(self.port)
+        layout.addLayout(port_layout)
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+        self.setLayout(layout)
+        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
+        self.setLineWidth(2)
+    
+    def bind_port(self):
+        if self.sock is not None:
+            self.sock.close()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    def send(self, msg):
+        if self.sock is not None:
+            self.sock.sendto(msg.encode("utf8"), (self.ip.text(), int(self.port.text())))

@@ -47,6 +47,8 @@ class PumpConfig(QFrame):
         self.fill_btn.clicked.connect(self.fill_lines)
         vlayout.addWidget(self.fill_btn)
 
+        #TODO: add a fill all lines button
+
         push_res_label = QLabel("Push To Reservoir")
         vlayout.addWidget(push_res_label)
         push_res_layout = QHBoxLayout()
