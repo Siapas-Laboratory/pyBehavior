@@ -168,9 +168,14 @@ class RPIRewardControl(RewardWidget):
         vlayout.addLayout(post_delay_layout)
 
 
-        self.lick_triggered = QCheckBox('Triggered')
-        vlayout.addWidget(self.lick_triggered)
-        self.lick_triggered.setChecked(False)
+        trigger_layout = QHBoxLayout()
+        trigger_layout.addWidget(QLabel("Trigger Mode:"))
+        self.trigger_mode = QComboBox()
+        self.trigger_mode.addItems(["No Trigger", "Single Trigger", "Continuous Trigger"])
+        self.trigger_mode_opts = ["NO_TRIGGER", "SINGLE_TRIGGER", "CONTINUOUS_TRIGGER"]
+        self.trigger_mode.setCurrentIndex(0)
+        trigger_layout.addWidget(self.trigger_mode)
+        vlayout.addLayout(trigger_layout)
 
         pulse_layout = QHBoxLayout()
         amt_label = QLabel("Reward Amount (mL)")
@@ -297,9 +302,8 @@ class RPIRewardControl(RewardWidget):
     def pulse(self, amount):
         args = {'module': self.module, 
                 'amount': amount,
-                'triggered': self.lick_triggered.isChecked(),
+                'trigger_mode': self.trigger_mode_opts[self.trigger_mode.currentIndex()],
                 'force': True}
-        
         status = self.client.run_command("trigger_reward", args, channel = 'run')
         if not status=='SUCCESS\n':
             print('error status', status)
