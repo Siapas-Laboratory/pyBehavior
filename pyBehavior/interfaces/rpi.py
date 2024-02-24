@@ -299,21 +299,22 @@ class RPIRewardControl(RewardWidget):
     def small_pulse(self):
         self.pulse(float(self.small_pulse_frac.text()) * float(self.amt.text()))
         
-    def pulse(self, amount):
+    def pulse(self, amount, force = True, wait = False):
         args = {'module': self.module, 
                 'amount': amount,
                 'trigger_mode': self.trigger_mode_opts[self.trigger_mode.currentIndex()],
-                'force': True}
+                'force': force,
+                'wait' : wait}
         status = self.client.run_command("trigger_reward", args, channel = 'run')
         if not status=='SUCCESS\n':
             print('error status', status)
 
-    def trigger_reward(self, small = False):
+    def trigger_reward(self, small = False, force = True, wait = False):
         if small:
             amount =  float(self.small_pulse_frac.text()) * float(self.amt.text())
         else:
             amount =  float(self.amt.text())
-        self.pulse(amount)
+        self.pulse(amount, force = force, wait = wait)
 
 
 class RPILickThread(QThread):
