@@ -177,6 +177,15 @@ class RPIRewardControl(RewardWidget):
         trigger_layout.addWidget(self.trigger_mode)
         vlayout.addLayout(trigger_layout)
 
+        thresh_layout = QHBoxLayout()
+        thresh_layout.addWidget(QLabel("Reward Lick Threshold: "))
+        self.reward_thresh = QLineEdit()
+        self.reward_thresh.setValidator(QDoubleValidator())
+        self.reward_thresh.setText(str(float(self.client.get(f"modules['{self.module}'].reward_thresh"))))
+        self.reward_thresh.editingFinished.connect(self.update_reward_thresh)
+        thresh_layout.addWidget(self.reward_thresh)
+        vlayout.addLayout(thresh_layout)
+
         pulse_layout = QHBoxLayout()
         amt_label = QLabel("Reward Amount (mL)")
         self.amt = QLineEdit()
@@ -252,7 +261,14 @@ class RPIRewardControl(RewardWidget):
         self.setLineWidth(2)
 
         self.setLayout(vlayout)
-
+    
+    def update_reward_thresh(self):
+        self.client.run_command("set_reward_thresh",
+                                args = {
+                                    "module": self.module,
+                                    "val": int(self.reward_thresh.text())
+                                }, channel = 'run')
+    
     def update_post_delay(self):
         args = {'module': self.module,
                 'post_delay': float(self.post_delay.text())}
@@ -318,7 +334,7 @@ class RPIRewardControl(RewardWidget):
 
 
 class RPILickThread(QThread):
-    lick_num_updated = pyqtSignal(object)
+    lick_num_updated = pyqtSignal(int)
     def __init__(self, client, module):
         super(RPILickThread, self).__init__()
         self.client = client
@@ -326,14 +342,15 @@ class RPILickThread(QThread):
         self.client.new_channel(f"{self.module}_licks")
     
     def run(self):
-        prev_licks = 0
+        prev_licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                            channel = f"{self.module}_licks"))
         while True:
             try:
                 licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
                                             channel = f"{self.module}_licks"))
                 if licks!=prev_licks:
+                    self.lick_num_updated.emit(max(1, licks - prev_licks))
                     prev_licks = licks
-                    self.lick_num_updated.emit(licks)
             except ValueError as e:
                 print(f"invalid read on '{self.module}'")
                 raise e
