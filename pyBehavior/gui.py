@@ -105,6 +105,9 @@ class SetupGUI(QMainWindow):
         self.buffer = {} # clear the save buffer
         # dialog to select a save directory
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
+        dir_name = os.path.join(dir_name, 
+                                datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S"))
+        os.makedirs(dir_name)
         self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.log")
 
         # replace file handler
