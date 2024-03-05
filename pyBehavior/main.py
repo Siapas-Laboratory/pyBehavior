@@ -102,15 +102,20 @@ class Settings(QMainWindow):
             if i.is_dir():
                 if 'port_map.csv' in [j.name for j in i.iterdir()]:
                     available_mappings.append(i.stem)
-        
+            
         self.map_file_select = QComboBox()
         self.map_file_select.addItems(available_mappings)
-        self.map_file = os.path.join(setup_dir,self.map_file_select.currentText(),'port_map.csv')
-        self.mapping = pd.read_csv(self.map_file)
-        self.mapping = self.mapping.set_index('port')['name'].fillna("")
+        if len(available_mappings)>0:
+            self.map_file = os.path.join(setup_dir,self.map_file_select.currentText(),'port_map.csv')
+            self.mapping = pd.read_csv(self.map_file)
+            self.mapping = self.mapping.set_index('port')['name'].fillna("")
+        else:
+            self.map_file = None
+            self.mapping = pd.DataFrame()
+
         self.map_file_select.currentIndexChanged.connect(self.change_map_file)
         self.header_layout.addWidget(self.map_file_select)
-
+        
         # button to create new map file
         self.create_btn = QPushButton("create")
         self.create_btn.clicked.connect(self.create)
