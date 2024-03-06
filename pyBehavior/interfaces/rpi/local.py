@@ -250,12 +250,12 @@ class RPIRewardControl(RewardWidget):
         self.lick_count.setText(f"Lick Count: {self.interface.modules[self.module].lickometer.licks}")
     
     def update_reward_thresh(self):
-        self.interface.set_reward_thresh(self.module, 
-                                         int(self.reward_thresh.text()))
+        self.interface.set_reward_thresh(module = self.module, 
+                                         val = int(self.reward_thresh.text()))
     
     def update_post_delay(self):
-        self.interface.update_post_delay(self.module, 
-                                         float(self.post_delay.text()))
+        self.interface.update_post_delay(module = self.module, 
+                                         post_delay = float(self.post_delay.text()))
 
     def play_tone(self):
         self.interface.play_tone(
@@ -267,11 +267,11 @@ class RPIRewardControl(RewardWidget):
 
     def toggle_led(self):
         led_state = self.interface.modules[self.module].LED.on
-        self.interface.toggle_LED(self.module, on = not led_state)
+        self.interface.toggle_LED(module = self.module, on = not led_state)
 
     def toggle_valve(self):
         valve_state =  self.interface.modules[self.module].valve.is_open
-        self.interface.toggle_valve(self.module, open_valve = not valve_state)
+        self.interface.toggle_valve(module = self.module, open_valve = not valve_state)
 
     def single_pulse(self):
         self.pulse(float(self.amt.text()))
