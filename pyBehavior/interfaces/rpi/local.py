@@ -159,7 +159,7 @@ class RPIRewardControl(RewardWidget):
         thresh_layout.addWidget(QLabel("Reward Lick Threshold: "))
         self.reward_thresh = QLineEdit()
         self.reward_thresh.setValidator(QDoubleValidator())
-        self.reward_thresh.setText(str(self.module.reward_thresh))
+        self.reward_thresh.setText(str(self.interface.modules[self.module].reward_thresh))
         self.reward_thresh.editingFinished.connect(self.update_reward_thresh)
         thresh_layout.addWidget(self.reward_thresh)
         vlayout.addLayout(thresh_layout)
