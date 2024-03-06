@@ -141,7 +141,7 @@ class PumpConfig(QFrame):
 
 class RPIRewardControl(RewardWidget):
 
-    lick_num_updated = pyqtSignal(int)
+    new_licks = pyqtSignal(int)
 
     def __init__(self, client, module):
         super(RPIRewardControl, self).__init__()
@@ -159,14 +159,16 @@ class RPIRewardControl(RewardWidget):
         vlayout.addWidget(pump_label)
 
         lick_layout = QHBoxLayout()
-        count = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
-        self.lick_count = QLabel(f"Lick Count: {count}")
+        self.lick_count_n = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
+        self.lick_count = QLabel(f"Lick Count: {self.lick_count_n}")
         lick_layout.addWidget(self.lick_count)
         reset_btn = QPushButton("Reset")
         reset_btn.clicked.connect(self.reset_licks)
-        vlayout.addWidget(reset_btn)
+        lick_layout.addWidget(reset_btn)
+        vlayout.addLayout(lick_layout)
         self.lick_thread = RPIRewardControl.RPILickThread(self.client, self.module)
-        self.lick_thread.lick_num_updated.connect(self.lick_num_updated)
+        self.lick_thread.lick_num_updated.connect(self.update_licks)
+        self.lick_thread.start()
 
         post_delay_layout = QHBoxLayout()
         post_delay_layout.addWidget(QLabel("Post Reward Delay (s): "))
@@ -272,6 +274,14 @@ class RPIRewardControl(RewardWidget):
 
         self.setLayout(vlayout)
     
+    def update_licks(self, amt):
+        if amt > 0: self.new_licks.emit(amt)
+        self.lick_count_n += amt
+        self.lick_count.setText(f"Lick Count: {self.lick_count_n}")
+
+    def reset_licks(self):
+        self.client.run_command("reset_licks", {'module': self.module}, channel = "run")
+
     def update_reward_thresh(self):
         self.client.run_command("set_reward_thresh",
                                 args = {
@@ -359,7 +369,7 @@ class RPIRewardControl(RewardWidget):
                     licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
                                                 channel = f"{self.module}_licks"))
                     if licks!=prev_licks:
-                        self.lick_num_updated.emit(max(1, licks - prev_licks))
+                        self.lick_num_updated.emit(licks - prev_licks)
                         prev_licks = licks
                 except ValueError as e:
                     print(f"invalid read on '{self.module}'")

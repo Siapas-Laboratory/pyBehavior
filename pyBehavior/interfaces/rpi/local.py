@@ -128,7 +128,8 @@ class RPIRewardControl(RewardWidget):
         lick_layout.addWidget(self.lick_count)
         reset_btn = QPushButton("Reset")
         reset_btn.clicked.connect(self.reset_licks)
-        vlayout.addWidget(reset_btn)
+        lick_layout.addWidget(reset_btn)
+        vlayout.addLayout(lick_layout)
 
         pump_name =   self.interface.modules[self.module].pump.name
         pump_label = QLabel(f"Pump: {pump_name}")
@@ -238,7 +239,7 @@ class RPIRewardControl(RewardWidget):
         self.setLineWidth(2)
 
         self.setLayout(vlayout)
-        self.interface.modules[module].lickometer.signal_sender.signal.connect(self.update_licks)
+        self.interface.modules[module].lickometer.lick_notifier.new_lick.connect(self.update_licks)
 
     def update_licks(self):
         self.lick_count.setText(f"Lick Count: {self.interface.modules[self.module].lickometer.licks}")
@@ -246,6 +247,7 @@ class RPIRewardControl(RewardWidget):
 
     def reset_licks(self):
         self.interface.reset_licks(self.module)
+        self.lick_count.setText(f"Lick Count: {self.interface.modules[self.module].lickometer.licks}")
     
     def update_reward_thresh(self):
         self.interface.set_reward_thresh(self.module, 
