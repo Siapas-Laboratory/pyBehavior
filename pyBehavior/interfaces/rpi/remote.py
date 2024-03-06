@@ -141,22 +141,32 @@ class PumpConfig(QFrame):
 
 class RPIRewardControl(RewardWidget):
 
+    lick_num_updated = pyqtSignal(int)
+
     def __init__(self, client, module):
         super(RPIRewardControl, self).__init__()
 
         self.module = module
         self.client = client
-        self.name = module
     
         vlayout= QVBoxLayout()
 
-        valve_label = QLabel(self.name)
+        valve_label = QLabel(self.module)
         vlayout.addWidget(valve_label)
 
         pump_name = self.client.get(f"modules['{self.module}'].pump.name")
         pump_label = QLabel(f"Pump: {pump_name}")
         vlayout.addWidget(pump_label)
 
+        lick_layout = QHBoxLayout()
+        count = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
+        self.lick_count = QLabel(f"Lick Count: {count}")
+        lick_layout.addWidget(self.lick_count)
+        reset_btn = QPushButton("Reset")
+        reset_btn.clicked.connect(self.reset_licks)
+        vlayout.addWidget(reset_btn)
+        self.lick_thread = RPIRewardControl.RPILickThread(self.client, self.module)
+        self.lick_thread.lick_num_updated.connect(self.lick_num_updated)
 
         post_delay_layout = QHBoxLayout()
         post_delay_layout.addWidget(QLabel("Post Reward Delay (s): "))
@@ -333,26 +343,26 @@ class RPIRewardControl(RewardWidget):
         self.pulse(amount, force = force, wait = wait)
 
 
-class RPILickThread(QThread):
-    lick_num_updated = pyqtSignal(int)
-    def __init__(self, client, module):
-        super(RPILickThread, self).__init__()
-        self.client = client
-        self.module = module
-        self.client.new_channel(f"{self.module}_licks")
-    
-    def run(self):
-        prev_licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
-                                            channel = f"{self.module}_licks"))
-        while True:
-            try:
-                licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
-                                            channel = f"{self.module}_licks"))
-                if licks!=prev_licks:
-                    self.lick_num_updated.emit(max(1, licks - prev_licks))
-                    prev_licks = licks
-            except ValueError as e:
-                print(f"invalid read on '{self.module}'")
-                raise e
-            finally:
-                time.sleep(.005)
+    class RPILickThread(QThread):
+        lick_num_updated = pyqtSignal(int)
+        def __init__(self, client, module):
+            super(RPIRewardControl.RPILickThread, self).__init__()
+            self.client = client
+            self.module = module
+            self.client.new_channel(f"{self.module}_licks")
+        
+        def run(self):
+            prev_licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                                channel = f"{self.module}_licks"))
+            while True:
+                try:
+                    licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                                channel = f"{self.module}_licks"))
+                    if licks!=prev_licks:
+                        self.lick_num_updated.emit(max(1, licks - prev_licks))
+                        prev_licks = licks
+                except ValueError as e:
+                    print(f"invalid read on '{self.module}'")
+                    raise e
+                finally:
+                    time.sleep(.005)
