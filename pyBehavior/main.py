@@ -29,7 +29,7 @@ class NewSetupDialog(QDialog):
         self.fname_input = QLineEdit()
         message = QLabel("Please enter a name for the new setup. Avoid spaces and all symbols except for _")
         self.use_ni_cards = QCheckBox("Check here if this setup will use National Instruments Cards")
-        self.use_rpi = QCheckBox("Check here if this setup will use a Raspberry Pi")
+        self.use_rpi = QCheckBox("Check here if this setup will connect remotely to a ratBerryPi")
         rpi_dialog_layout = QVBoxLayout()
 
         host_layout = QHBoxLayout()
