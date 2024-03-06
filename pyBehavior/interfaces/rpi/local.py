@@ -261,7 +261,7 @@ class RPIRewardControl(RewardWidget):
         self.interface.play_tone(
             module = self.module,
             freq = float(self.tone_freq.text()),
-            vol = float(self.tone_vol.text()),
+            volume = float(self.tone_vol.text()),
             dur = float(self.tone_dur.text())
         )
 
