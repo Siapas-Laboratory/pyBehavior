@@ -163,8 +163,8 @@ class SetupGUI(QMainWindow):
             self.state_machine = None
             self.start_btn.setEnabled(False)
     
-    def trigger_reward(self, module, small):
-        self.reward_modules[module].trigger_reward(small)
+    def trigger_reward(self, module, amount):
+        self.reward_modules[module].trigger_reward(amount)
 
     def log(self, event):
         self.logger.info(event)
@@ -199,7 +199,7 @@ class RewardWidget(QFrame, metaclass = RewardWidgetMeta):
     defines an abstract method trigger_reward which must be defined in the subclass
     """
     @abstractmethod
-    def trigger_reward(amount, small = False):
+    def trigger_reward(amount):
         ...
 
 class ModuleDict(UserDict):

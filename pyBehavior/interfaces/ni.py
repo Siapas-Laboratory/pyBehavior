@@ -117,20 +117,6 @@ class NIRewardControl(RewardWidget):
         flow_layout.addWidget(self.flow_rate)
         vlayout.addLayout(flow_layout)
 
-        tpulse_layout = QHBoxLayout()
-        dur_label = QLabel("Timed Pulse Duration")
-        self.dur = QLineEdit()
-        self.dur.setValidator(QDoubleValidator())
-        self.dur.setText("1")
-
-        tpulse_btn = QPushButton("Timed Pulse")
-        tpulse_btn.clicked.connect(self.timed_pulse)
-        tpulse_layout.addWidget(dur_label)
-        tpulse_layout.addWidget(self.dur)
-        tpulse_layout.addWidget(tpulse_btn)
-        vlayout.addLayout(tpulse_layout)
-
-
         pulse_layout = QHBoxLayout()
         amt_label = QLabel("Reward Amount (mL)")
         self.amt = QLineEdit()
@@ -177,32 +163,16 @@ class NIRewardControl(RewardWidget):
             task.write([True, True, False, False, True], auto_start = True)
             task.wait_until_done()
     
-    def timed_pulse(self):
-        dur = float(self.dur.text())
-        if dur>0:
-            print('opening')
-            digital_write(self.port, False)
-            time.sleep(dur/1000.) # i should prob do this asynchronously.
-            digital_write(self.port, True)
-            print('closing')
-
-    def pulse(self, amount):
-        dur = amount/float(self.flow_rate.text())
-        if dur>0:
-            digital_write(self.port, False)
-            time.sleep(dur) # i should prob do this asynchronously.
-            digital_write(self.port, True)
-
     def single_pulse(self):
         if not self.valve_in_use:
             self.valve_in_use = True
-            self.pulse(float(self.amt.text()))
+            self.trigger_reward(float(self.amt.text()))
             self.valve_in_use = False
 
     def small_pulse(self):
         if not self.valve_in_use:
             self.valve_in_use = True
-            self.pulse(self.port, float(self.small_pulse_frac.text()) * float(self.amt.text()))
+            self.trigger_reward(self.port, float(self.small_pulse_frac.text()) * float(self.amt.text()))
             self.valve_in_use = False
         pass
 
@@ -210,7 +180,7 @@ class NIRewardControl(RewardWidget):
         if not self.valve_in_use:
             self.valve_in_use = True
             for _ in range(self.pulse_mult_num.value()):
-                self.pulse(float(self.amt.text()))
+                self.trigger_reward(float(self.amt.text()))
                 time.sleep(.2)
             self.valve_in_use = False
 
@@ -226,22 +196,24 @@ class NIRewardControl(RewardWidget):
             self.parent.log(f"{self.name} close")
         return
     
-    def trigger_reward(self, small = False):
-        if small:
-            amount =  float(self.small_pulse_frac.text()) * float(self.amt.text())
-        else:
-            amount =  float(self.amt.text())
-        self.reward_thread = self.RewardDeliveryThread(self, self.parent, amount, self.lick_thresh, self.bout_thresh)
-        self.reward_thread.start()
+    def trigger_reward(self, amount, sync = False):
+        dur = amount/float(self.flow_rate.text())
+        if dur > 0:
+            if sync:
+                digital_write(self.widget.port, False)
+                time.sleep(dur) # i should prob do this asynchronously.
+                digital_write(self.widget.port, True)
+            else:
+                self.reward_thread = self.RewardDeliveryThread(self, dur)
+                self.reward_thread.start()
 
     class RewardDeliveryThread(QThread):
-        def __init__(self, valve, parent, amount, lick_thresh, bout_thresh):
+        def __init__(self, widget, dur):
             super(NIRewardControl.RewardDeliveryThread, self).__init__()
-            self.parent = parent
-            self.valve = valve
-            self.amount = amount
-            self.lick_thresh = lick_thresh
-            self.bout_thresh = bout_thresh
+            self.widget = widget
+            self.dur = dur
 
         def run(self):
-            self.valve.pulse(self.amount)
+            digital_write(self.widget.port, False)
+            time.sleep(self.dur) # i should prob do this asynchronously.
+            digital_write(self.widget.port, True)

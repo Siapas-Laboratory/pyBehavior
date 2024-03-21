@@ -179,25 +179,6 @@ class RPIRewardControl(RewardWidget):
         post_delay_layout.addWidget(self.post_delay)
         vlayout.addLayout(post_delay_layout)
 
-
-        trigger_layout = QHBoxLayout()
-        trigger_layout.addWidget(QLabel("Trigger Mode:"))
-        self.trigger_mode = QComboBox()
-        self.trigger_mode.addItems(["No Trigger", "Single Trigger", "Continuous Trigger"])
-        self.trigger_mode_opts = ["NO_TRIGGER", "SINGLE_TRIGGER", "CONTINUOUS_TRIGGER"]
-        self.trigger_mode.setCurrentIndex(0)
-        trigger_layout.addWidget(self.trigger_mode)
-        vlayout.addLayout(trigger_layout)
-
-        thresh_layout = QHBoxLayout()
-        thresh_layout.addWidget(QLabel("Reward Lick Threshold: "))
-        self.reward_thresh = QLineEdit()
-        self.reward_thresh.setValidator(QDoubleValidator())
-        self.reward_thresh.setText(str(float(self.client.get(f"modules['{self.module}'].reward_thresh"))))
-        self.reward_thresh.editingFinished.connect(self.update_reward_thresh)
-        thresh_layout.addWidget(self.reward_thresh)
-        vlayout.addLayout(thresh_layout)
-
         pulse_layout = QHBoxLayout()
         amt_label = QLabel("Reward Amount (mL)")
         self.amt = QLineEdit()
@@ -281,13 +262,6 @@ class RPIRewardControl(RewardWidget):
 
     def reset_licks(self):
         self.client.run_command("reset_licks", {'module': self.module}, channel = "run")
-
-    def update_reward_thresh(self):
-        self.client.run_command("set_reward_thresh",
-                                args = {
-                                    "module": self.module,
-                                    "val": int(self.reward_thresh.text())
-                                }, channel = 'run')
     
     def update_post_delay(self):
         args = {'module': self.module,
@@ -330,27 +304,19 @@ class RPIRewardControl(RewardWidget):
             print('error status', status)
 
     def single_pulse(self):
-        self.pulse(float(self.amt.text()))
+        self.trigger_reward(float(self.amt.text()))
 
     def small_pulse(self):
-        self.pulse(float(self.small_pulse_frac.text()) * float(self.amt.text()))
+        self.trigger_reward(float(self.small_pulse_frac.text()) * float(self.amt.text()))
         
-    def pulse(self, amount, force = True, wait = False):
+    def trigger_reward(self, amount, force = True, enqueue = False):
         args = {'module': self.module, 
                 'amount': amount,
-                'trigger_mode': self.trigger_mode_opts[self.trigger_mode.currentIndex()],
                 'force': force,
-                'wait' : wait}
+                'enqueue' : enqueue}
         status = self.client.run_command("trigger_reward", args, channel = 'run')
         if not status=='SUCCESS\n':
             print('error status', status)
-
-    def trigger_reward(self, small = False, force = True, wait = False):
-        if small:
-            amount =  float(self.small_pulse_frac.text()) * float(self.amt.text())
-        else:
-            amount =  float(self.amt.text())
-        self.pulse(amount, force = force, wait = wait)
 
 
     class RPILickThread(QThread):
