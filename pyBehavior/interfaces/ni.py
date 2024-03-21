@@ -117,10 +117,6 @@ class NIRewardControl(RewardWidget):
         flow_layout.addWidget(self.flow_rate)
         vlayout.addLayout(flow_layout)
 
-        self.lick_triggered = QCheckBox('Lick Triggered')
-        vlayout.addWidget(self.lick_triggered)
-        self.lick_triggered.setChecked(False)
-
         tpulse_layout = QHBoxLayout()
         dur_label = QLabel("Timed Pulse Duration")
         self.dur = QLineEdit()
@@ -235,41 +231,17 @@ class NIRewardControl(RewardWidget):
             amount =  float(self.small_pulse_frac.text()) * float(self.amt.text())
         else:
             amount =  float(self.amt.text())
-        self.reward_thread = self.RewardDeliveryThread(self, self.parent, amount, self.lick_thresh, 
-                                                       self.bout_thresh, self.lick_triggered.checkState())
+        self.reward_thread = self.RewardDeliveryThread(self, self.parent, amount, self.lick_thresh, self.bout_thresh)
         self.reward_thread.start()
 
     class RewardDeliveryThread(QThread):
-        def __init__(self, valve, parent, amount, lick_thresh, bout_thresh, lick_triggered):
+        def __init__(self, valve, parent, amount, lick_thresh, bout_thresh):
             super(NIRewardControl.RewardDeliveryThread, self).__init__()
             self.parent = parent
             self.valve = valve
             self.amount = amount
             self.lick_thresh = lick_thresh
-            self.lick_triggered = lick_triggered
             self.bout_thresh = bout_thresh
 
         def run(self):
-            if self.lick_triggered:
-                vopen = False
-                querying = True
-                dur = self.amount/float(self.valve.flow_rate.text())
-                while querying:
-                    if (self.parent.trial_lick_n>0) and ((self.parent.trial_lick_n % self.lick_thresh) == 0) and not vopen:
-                        self.valve.open_valve()
-                        vopen_t = datetime.now()
-                        vopen = True
-                    elif vopen:
-                        t = datetime.now()
-                        t_since_open = (t - vopen_t).total_seconds()
-                        t_since_last_lick = (t - self.parent.prev_lick).total_seconds()
-                        if t_since_last_lick >= self.bout_thresh:
-                            self.valve.close_valve()
-                            vopen = False
-                            self.trial_lick_n = 0
-                        if t_since_open>=dur:
-                            self.valve.close_valve()
-                            vopen = False
-                            querying = False
-            else:
-                self.valve.pulse(self.amount)
+            self.valve.pulse(self.amount)
