@@ -163,8 +163,9 @@ class SetupGUI(QMainWindow):
             self.state_machine = None
             self.start_btn.setEnabled(False)
     
-    def trigger_reward(self, module, amount):
-        self.reward_modules[module].trigger_reward(amount)
+    def trigger_reward(self, module, amount, **kwargs):
+        self.log(f"triggering {amount:.2f} mL reward on module {module}")
+        self.reward_modules[module].trigger_reward(amount, **kwargs)
 
     def log(self, event):
         self.logger.info(event)
