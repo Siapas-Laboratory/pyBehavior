@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QSpinBox, QCheckBox
+from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QSpinBox, QCheckBox, QFrame
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from datetime import datetime
@@ -9,6 +9,7 @@ from nidaqmx import constants, Task, errors
 import logging
 import time
 from pyBehavior.gui import RewardWidget
+import socket
 
 class NIDIChan(QObject):
 
@@ -217,3 +218,46 @@ class NIRewardControl(RewardWidget):
             digital_write(self.widget.port, False)
             time.sleep(self.dur) # i should prob do this asynchronously.
             digital_write(self.widget.port, True)
+
+
+class EventstringSender(QFrame):
+    def __init__(self, parent, event_line_name:str, event_line_addr:str, ip:str = socket.gethostbyname(socket.gethostname()), port:int = 2345):
+        super(EventstringSender, self).__init__()
+
+        self.parent = parent
+        self.event_line_addr = event_line_addr
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(f"Event Line: {event_line_name}"))
+        layout.addWidget(QLabel("Eventstring Destination"))
+        port_layout = QHBoxLayout()
+        ip_label = QLabel(f"IP: ")
+        self.ip = QLineEdit()
+        self.ip.setText(ip)
+        port_label = QLabel("PORT: ")
+        self.port = QLineEdit()
+        self.port.setValidator(QDoubleValidator())
+        self.port.setText(f"{port}")
+
+        port_layout.addWidget(ip_label)
+        port_layout.addWidget(self.ip)
+        port_layout.addWidget(port_label)
+        port_layout.addWidget(self.port)
+        layout.addLayout(port_layout)
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+        self.setLayout(layout)
+        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
+        self.setLineWidth(2)
+    
+    def bind_port(self):
+        if self.sock is not None:
+            self.sock.close()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    def send(self, msg):
+        digital_write(self.event_line_addr, True)
+        if self.sock is not None:
+            self.sock.sendto(msg.encode("utf8"), (self.ip.text(), int(self.port.text())))
+        self.parent.logger.info(msg)
+        digital_write(self.event_line_addr, False)

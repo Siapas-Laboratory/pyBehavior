@@ -13,6 +13,7 @@ from pyBehavior.protocols import *
 import logging
 import paramiko
 from scp import SCPClient
+import typing
 
 class SetupGUI(QMainWindow):
     """
@@ -49,31 +50,31 @@ class SetupGUI(QMainWindow):
 
         container = QWidget()
         self.layout = QVBoxLayout()
-        self.menu_layout = QHBoxLayout()
+        menu_layout = QHBoxLayout()
 
         # load all protocols into the dropdown menu
         protocols = [ i.stem for i in (self.loc/'protocols').iterdir() if i.is_file() and i.name[-3:] == '.py' ]
-        self.prot_select = QComboBox()
-        self.prot_select.addItems([""] + protocols)
-        self.prot_select.currentIndexChanged.connect(self.change_protocol)
+        self._prot_select = QComboBox()
+        self._prot_select.addItems([""] + protocols)
+        self._prot_select.currentIndexChanged.connect(self._change_protocol)
 
         # create a start button for starting a protocol
-        self.start_btn = QPushButton("start")
-        self.start_btn.setCheckable(True)
-        self.start_btn.setEnabled(False)
+        self._start_btn = QPushButton("start")
+        self._start_btn.setCheckable(True)
+        self._start_btn.setEnabled(False)
         self.running = False
-        self.start_btn.clicked.connect(self.start_protocol)
+        self._start_btn.clicked.connect(self._start_protocol)
 
         # stop button for stopping a protocol
-        self.stop_btn = QPushButton("stop")
-        self.stop_btn.setEnabled(False)
-        self.stop_btn.clicked.connect(self.stop_protocol)
+        self._stop_btn = QPushButton("stop")
+        self._stop_btn.setEnabled(False)
+        self._stop_btn.clicked.connect(self._stop_protocol)
 
         # add elements to the layout
-        self.menu_layout.addWidget(self.prot_select)
-        self.menu_layout.addWidget(self.start_btn)
-        self.menu_layout.addWidget(self.stop_btn)
-        self.layout.addLayout(self.menu_layout)
+        menu_layout.addWidget(self._prot_select)
+        menu_layout.addWidget(self._start_btn)
+        menu_layout.addWidget(self._stop_btn)
+        self.layout.addLayout(menu_layout)
         container.setLayout(self.layout)
         self.setCentralWidget(container)
 
@@ -89,32 +90,33 @@ class SetupGUI(QMainWindow):
         self.logger.setLevel(logging.DEBUG)
 
         # placeholder for file handler
-        self.log_fh = None
+        self._log_fh = None
 
         # create handler for logging to the console
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)
         # create formatter and add it to the handler
-        self.formatter = logging.Formatter('%(asctime)s.%(msecs)03d, %(levelname)s, %(message)s',
+        self._formatter = logging.Formatter('%(asctime)s.%(msecs)03d, %(levelname)s, %(message)s',
                                            "%Y-%m-%d %H:%M:%S")
-        ch.setFormatter(self.formatter)
+        ch.setFormatter(self._formatter)
         # add the handlers to the logger
         self.logger.addHandler(ch)
 
-    def start_protocol(self):
-        self.buffer = {} # clear the save buffer
+        self.eventstring_handlers = {}
+
+    def _start_protocol(self):
         # dialog to select a save directory
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
         dir_name = os.path.join(dir_name, 
-                                datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S"))
+                                datetime.strftime(datetime.now(), f"{self._prot_select.currentText()}_%Y_%m_%d_%H_%M_%S"))
         os.makedirs(dir_name)
-        self.filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self.prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.log")
+        self._filename = Path(dir_name)/datetime.strftime(datetime.now(), f"{self._prot_select.currentText()}_%Y_%m_%d_%H_%M_%S.log")
 
         # replace file handler
-        self.log_fh = logging.FileHandler(self.filename)
-        self.log_fh.setLevel(logging.DEBUG)
-        self.log_fh.setFormatter(self.formatter)
-        self.logger.addHandler(self.log_fh)
+        self._log_fh = logging.FileHandler(self._filename)
+        self._log_fh.setLevel(logging.DEBUG)
+        self._log_fh.setFormatter(self._formatter)
+        self.logger.addHandler(self._log_fh)
 
         # create the state machine
         prot = ".".join([self.loc.name, "protocols", self.prot_name])
@@ -126,14 +128,14 @@ class SetupGUI(QMainWindow):
         if self.has_rpi: self.client.run_command('record', channel = 'run')
 
         # update gui element accessibility
-        self.start_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        self.prot_select.setEnabled(False)
+        self._start_btn.setEnabled(False)
+        self._stop_btn.setEnabled(True)
+        self._prot_select.setEnabled(False)
 
         # raise flag saying that we're running
         self.running = True
 
-    def stop_protocol(self):
+    def _stop_protocol(self):
         self.running = False
         if self.has_rpi: 
             rpi_data_path = self.client.get('data_path')
@@ -142,33 +144,41 @@ class SetupGUI(QMainWindow):
             ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_client.connect(self.client.host, username = self.rpi_config['USER'], look_for_keys = True)
             scp_client = SCPClient(ssh_client.get_transport())
-            scp_client.get(rpi_data_path, self.filename.parent.as_posix())
+            scp_client.get(rpi_data_path, self._filename.parent.as_posix())
             self.logger.info(f"rpi logs saved at: {self.client.get('data_path')}")
             self.client.run_command('stop_recording', channel = 'run')
         # remove file handler
-        self.logger.removeHandler(self.log_fh)
+        self.logger.removeHandler(self._log_fh)
         
         # update gui elements
-        self.start_btn.setEnabled(True)
-        self.start_btn.toggle()
-        self.prot_select.setEnabled(True)
-        self.stop_btn.setEnabled(False)
+        self._start_btn.setEnabled(True)
+        self._start_btn.toggle()
+        self._prot_select.setEnabled(True)
+        self._stop_btn.setEnabled(False)
 
-    def change_protocol(self):
+    def _change_protocol(self):
         # import and create the statemachine
-        self.prot_name = self.prot_select.currentText()
+        self.prot_name = self._prot_select.currentText()
         if len(self.prot_name)>0:
-            self.start_btn.setEnabled(True)
+            self._start_btn.setEnabled(True)
         else:
             self.state_machine = None
-            self.start_btn.setEnabled(False)
+            self._start_btn.setEnabled(False)
     
+    def _sample_state_machine_input_handler(self, data, formatter:typing.Callable, before:typing.Callable):
+        if before is not None:
+            before(data)
+        self.state_machine.handle_input(formatter(data))
+
     def trigger_reward(self, module, amount, **kwargs):
         self.log(f"triggering {amount:.2f} mL reward on module {module}")
         self.reward_modules[module].trigger_reward(amount, **kwargs)
 
-    def log(self, event):
-        self.logger.info(event)
+    def log(self, event, event_line = None):
+        if event_line:
+            self.eventstring_handlers[event_line].send(event)
+        else:
+            self.logger.info(event)
 
     def init_NIDIDaemon(self, channels, fs = 1000, start = False):
         from pyBehavior.interfaces.ni import NIDIDaemon
@@ -183,7 +193,17 @@ class SetupGUI(QMainWindow):
             self.di_daemon_thread.start()
         return self.di_daemon, self.di_daemon_thread
     
+    def register_state_machine_input(self, signal, input_type, metadata = None, before:typing.Callable = None):
+        formatter = lambda x: {"type": input_type, "data": x, "metadata": metadata}
+        signal.connect(lambda x: self._sample_state_machine_input_handler(x, formatter, before))
+
+    def add_eventstring_handler(self, event_line_name, event_line_port):
+        from pyBehavior.interfaces.ni import EventstringSender
+        self.eventstring_handlers[event_line_name] = EventstringSender(self, event_line_name, event_line_port)
+        return self.eventstring_handlers[event_line_name] 
+
     def closeEvent(self, event):
+        if self.running: self._stop_protocol()
         if hasattr(self, 'di_daemon'):
             if self.di_daemon.running:
                 self.di_daemon.stop()

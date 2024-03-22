@@ -140,6 +140,25 @@ class PumpConfig(QFrame):
         
 
 class RPIRewardControl(RewardWidget):
+    """
+    A widget for controlling ratBerryPi reward modules locally on the pi
+
+    ...
+    PyQt Signals
+
+    new_lick(bool)
+
+    ...
+    Methods
+
+    reset_licks()
+    update_post_delay(post_delay)
+    toggle_led(on)
+    toggle_valve(open_valve)
+    play_tone(freq, volume, dur)
+    trigger_reward(amount, force, enqueue)
+    
+    """
 
     new_licks = pyqtSignal(int)
 
@@ -151,13 +170,16 @@ class RPIRewardControl(RewardWidget):
     
         vlayout= QVBoxLayout()
 
-        valve_label = QLabel(self.module)
-        vlayout.addWidget(valve_label)
+        # module name
+        module_label = QLabel(self.module)
+        vlayout.addWidget(module_label)
 
+        # pump name
         pump_name = self.client.get(f"modules['{self.module}'].pump.name")
         pump_label = QLabel(f"Pump: {pump_name}")
         vlayout.addWidget(pump_label)
 
+        # widget to display and reset lick count
         lick_layout = QHBoxLayout()
         self.lick_count_n = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
         self.lick_count = QLabel(f"Lick Count: {self.lick_count_n}")
@@ -166,10 +188,11 @@ class RPIRewardControl(RewardWidget):
         reset_btn.clicked.connect(self.reset_licks)
         lick_layout.addWidget(reset_btn)
         vlayout.addLayout(lick_layout)
-        self.lick_thread = RPIRewardControl.RPILickThread(self.client, self.module)
-        self.lick_thread.lick_num_updated.connect(self.update_licks)
+        self.lick_thread = RPILickThread(self.client, self.module)
+        self.lick_thread.lick_num_updated.connect(self._update_licks)
         self.lick_thread.start()
 
+        # widget to control post reward delay
         post_delay_layout = QHBoxLayout()
         post_delay_layout.addWidget(QLabel("Post Reward Delay (s): "))
         self.post_delay = QLineEdit()
@@ -179,19 +202,20 @@ class RPIRewardControl(RewardWidget):
         post_delay_layout.addWidget(self.post_delay)
         vlayout.addLayout(post_delay_layout)
 
+        # widget to set reward amount and manually deliver
         pulse_layout = QHBoxLayout()
         amt_label = QLabel("Reward Amount (mL)")
         self.amt = QLineEdit()
         self.amt.setValidator(QDoubleValidator())
         self.amt.setText("0.2")
-
         pulse_btn = QPushButton("Pulse")
-        pulse_btn.clicked.connect(self.single_pulse)
+        pulse_btn.clicked.connect(self._single_pulse)
         pulse_layout.addWidget(amt_label)
         pulse_layout.addWidget(self.amt)
         pulse_layout.addWidget(pulse_btn)
         vlayout.addLayout(pulse_layout)
 
+        # widget to set small reward fraction and manually deliver
         small_pulse_layout = QHBoxLayout()
         small_pulse_edit_label = QLabel("Small Pulse Fraction")
         self.small_pulse_frac = QLineEdit()
@@ -199,12 +223,13 @@ class RPIRewardControl(RewardWidget):
         self.small_pulse_frac.setText("0.6")
         self.small_pulse_frac.setValidator(only_frac) # this doesn't seem to be working for some reason
         small_pulse_btn = QPushButton("Small Pulse")
-        small_pulse_btn.clicked.connect(self.small_pulse)
+        small_pulse_btn.clicked.connect(self._small_pulse)
         small_pulse_layout.addWidget(small_pulse_edit_label)
         small_pulse_layout.addWidget(self.small_pulse_frac)
         small_pulse_layout.addWidget(small_pulse_btn)
         vlayout.addLayout(small_pulse_layout)
 
+        # widget to control speaker tone frequency
         tone_freq_layout = QHBoxLayout()
         tone_freq_label = QLabel("Tone Frequency [Hz]")
         self.tone_freq = QLineEdit()
@@ -214,6 +239,7 @@ class RPIRewardControl(RewardWidget):
         tone_freq_layout.addWidget(self.tone_freq)
         vlayout.addLayout(tone_freq_layout)
 
+        # widget to control speaker tone duration
         tone_dur_layout = QHBoxLayout()
         tone_dur_label = QLabel("Tone Duration [s]")
         self.tone_dur = QLineEdit()
@@ -223,6 +249,7 @@ class RPIRewardControl(RewardWidget):
         tone_dur_layout.addWidget(self.tone_dur)
         vlayout.addLayout(tone_dur_layout)
 
+        # widget to control speaker tone volume
         tone_vol_layout = QHBoxLayout()
         tone_vol_label = QLabel("Tone Volume")
         self.tone_vol = QLineEdit()
@@ -232,10 +259,12 @@ class RPIRewardControl(RewardWidget):
         tone_vol_layout.addWidget(self.tone_vol)
         vlayout.addLayout(tone_vol_layout)
 
+        # button to manually play tone
         tone_btn = QPushButton("Play Tone")
         tone_btn.clicked.connect(self.play_tone)
         vlayout.addWidget(tone_btn)
         
+        # button to toggle the led
         self.led_btn = QPushButton("Toggle LED")
         self.led_btn.setCheckable(True)
         init_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
@@ -243,6 +272,7 @@ class RPIRewardControl(RewardWidget):
         self.led_btn.clicked.connect(self.toggle_led)
         vlayout.addWidget(self.led_btn)
 
+        # button to toggle the valve
         self.valve_btn = QPushButton("Toggle Valve")
         self.valve_btn.setCheckable(True)
         init_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
@@ -250,66 +280,136 @@ class RPIRewardControl(RewardWidget):
         self.valve_btn.clicked.connect(self.toggle_valve)
         vlayout.addWidget(self.valve_btn)
 
+        # some formatting
         self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
         self.setLineWidth(2)
-
         self.setLayout(vlayout)
     
-    def update_licks(self, amt):
+    def _update_licks(self, amt):
         if amt > 0: self.new_licks.emit(amt)
         self.lick_count_n += amt
         self.lick_count.setText(f"Lick Count: {self.lick_count_n}")
 
-    def reset_licks(self):
+    def _single_pulse(self):
+        self.trigger_reward(float(self.amt.text()))
+
+    def _small_pulse(self):
+        self.trigger_reward(float(self.small_pulse_frac.text()) * float(self.amt.text()))
+
+    def reset_licks(self) -> None:
+        """
+        reset the lick count for this module
+        """
+
         self.client.run_command("reset_licks", {'module': self.module}, channel = "run")
     
-    def update_post_delay(self):
-        args = {'module': self.module,
-                'post_delay': float(self.post_delay.text())}
-        self.client.run_command('update_post_delay', args, channel = 'run')
+    def update_post_delay(self, post_delay:float = None) -> None:
+        """
+        update the time to wait post pump actuation before closing the
+        valve associated to a module
 
-    def play_tone(self):
-        freq = float(self.tone_freq.text())
-        vol = float(self.tone_vol.text())
-        dur = float(self.tone_dur.text())
+        Args:
+            post_delay: float (optional)
+                new post pump actuation delay in seconds
+        """
+
+        post_delay = post_delay if post_delay is not None else float(self.post_delay.text())
+        args = {'module': self.module,
+                'post_delay': post_delay}
+        self.client.run_command('update_post_delay', args, channel = 'run')
+        self.post_delay.setText(f"{post_delay}")
+
+    def play_tone(self, freq:float = None, volume:float = None, dur:float = None) -> None:
+        """
+        play a tone of a specified frequency volume and duration.
+        by default all inputs are set according to the values set in
+        the gui
+
+        Args:
+            freq: float (optional)
+                tone frequency in Hz
+            volume: float (optional)
+                fraction of max volume to play the tone at.
+                this value should be between 0 and 1
+            dur: float (optional)
+                duration of the tone in seconds            
+        """
+
+        freq = freq if freq is not None else float(self.tone_freq.text())
+        volume = volume if volume is not None else float(self.tone_vol.text())
+        dur = dur if dur is not None else float(self.tone_dur.text())
 
         args = {'module': self.module,
                 'freq': freq,
                 'dur': dur,
-                'volume': vol}
+                'volume': volume}
         
         status = self.client.run_command('play_tone', args, channel = 'run')
 
         if not status=='SUCCESS\n':
             print('error status', status)
 
-    def toggle_led(self):
-        led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
-        args = {'module': self.module,
-                'on': not led_state}
-        status = self.client.run_command('toggle_LED', args, channel = 'run')
-        if not status=='SUCCESS\n':
+    def toggle_led(self, on:bool = None) -> None:
+        """
+        toggle the led. by default the led is toggled
+        to the opposite of it's current state 
+        (i.e. turned off if on and vice versa)
+
+        Args:
+            on: bool (optional)
+                whether to turn the led on 
+        """
+
+        if on is None:
             led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
-            self.led_btn.setChecked(led_state)
-            print('error status', status)
-
-    def toggle_valve(self):
-        valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
-        args = {'module': self.module,
-                'open_valve': not valve_state}
-        status = self.client.run_command('toggle_valve', args, channel = 'run')
-        if not status=='SUCCESS\n':
-            valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
-            self.valve_btn.setChecked(valve_state)
-            print('error status', status)
-
-    def single_pulse(self):
-        self.trigger_reward(float(self.amt.text()))
-
-    def small_pulse(self):
-        self.trigger_reward(float(self.small_pulse_frac.text()) * float(self.amt.text()))
+            on = not led_state
         
-    def trigger_reward(self, amount, force = True, enqueue = False):
+        args = {'module': self.module,
+                'on': on}
+        status = self.client.run_command('toggle_LED', args, channel = 'run')
+        if not status=='SUCCESS\n': print('error status', status)
+        led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
+        self.led_btn.setChecked(led_state)
+
+    def toggle_valve(self, open_valve:bool = None):
+        """
+        toggle the state of the valve. by default the valve
+        is toggled to the opposite of its current state
+        (i.e. opened if closed and vice versa)
+
+        Args:
+            open_valve: bool (optional)
+                whether to open the valve
+        """
+
+        if open_valve is None:
+            valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+            open_valve = not valve_state
+        args = {'module': self.module,
+                'open_valve': open_valve}
+        status = self.client.run_command('toggle_valve', args, channel = 'run')
+        if not status=='SUCCESS\n': print('error status', status)
+        valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+        self.valve_btn.setChecked(valve_state)
+        
+    def trigger_reward(self, amount:float, force:bool = True, enqueue:bool = False) -> None:
+        """
+        trigger a reward of a specified amount
+
+        Args: 
+            amount: float
+                amount of reward to deliver in mL
+            force: bool (optional)
+                whether or not to override a currently
+                running reward thread associated with this
+                module's pump in order to deliver this reward
+            enqueue: bool (optional)
+                if there is currently a reward thread running
+                that is using this module's pump, when set to True,
+                this argument allows the user to enqueue this reward 
+                delivery until after the currently running task is finished
+        """
+
         args = {'module': self.module, 
                 'amount': amount,
                 'force': force,
@@ -319,26 +419,31 @@ class RPIRewardControl(RewardWidget):
             print('error status', status)
 
 
-    class RPILickThread(QThread):
-        lick_num_updated = pyqtSignal(int)
-        def __init__(self, client, module):
-            super(RPIRewardControl.RPILickThread, self).__init__()
-            self.client = client
-            self.module = module
-            self.client.new_channel(f"{self.module}_licks")
-        
-        def run(self):
-            prev_licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
-                                                channel = f"{self.module}_licks"))
-            while True:
-                try:
-                    licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
-                                                channel = f"{self.module}_licks"))
-                    if licks!=prev_licks:
-                        self.lick_num_updated.emit(licks - prev_licks)
-                        prev_licks = licks
-                except ValueError as e:
-                    print(f"invalid read on '{self.module}'")
-                    raise e
-                finally:
-                    time.sleep(.005)
+class RPILickThread(QThread):
+    """
+    thread to monitor licks on the pi
+    """
+
+    lick_num_updated = pyqtSignal(int)
+    
+    def __init__(self, client, module):
+        super(RPILickThread, self).__init__()
+        self.client = client
+        self.module = module
+        self.client.new_channel(f"{self.module}_licks")
+    
+    def run(self):
+        prev_licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                            channel = f"{self.module}_licks"))
+        while True:
+            try:
+                licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                            channel = f"{self.module}_licks"))
+                if licks!=prev_licks:
+                    self.lick_num_updated.emit(licks - prev_licks)
+                    prev_licks = licks
+            except ValueError as e:
+                print(f"invalid read on '{self.module}'")
+                raise e
+            finally:
+                time.sleep(.005)
