@@ -1,5 +1,5 @@
 import pandas as pd
-from PyQt5.QtCore import QThread
+from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QFileDialog, QFrame
 from pathlib import Path
 from datetime import datetime
@@ -165,10 +165,14 @@ class SetupGUI(QMainWindow):
             self.state_machine = None
             self._start_btn.setEnabled(False)
     
-    def _sample_state_machine_input_handler(self, data, formatter:typing.Callable, before:typing.Callable):
+    def _template_state_machine_input_handler(self, data, formatter:typing.Callable, before:typing.Callable, event_line:str):
         if before is not None:
             before(data)
-        self.state_machine.handle_input(formatter(data))
+        if self.running:
+            curr_state = self.state_machine.current_state.id
+            self.state_machine.handle_input(formatter(data))
+            if self.state_machine.current_state.id != curr_state:
+                self.log(f"entered state {self.state_machine.current_state.id}", event_line)
 
     def trigger_reward(self, module, amount, **kwargs):
         self.log(f"triggering {amount:.2f} mL reward on module {module}")
@@ -193,9 +197,9 @@ class SetupGUI(QMainWindow):
             self.di_daemon_thread.start()
         return self.di_daemon, self.di_daemon_thread
     
-    def register_state_machine_input(self, signal, input_type, metadata = None, before:typing.Callable = None):
+    def register_state_machine_input(self, signal:pyqtSignal, input_type:str, metadata = None, before:typing.Callable = None, event_line:str = None):
         formatter = lambda x: {"type": input_type, "data": x, "metadata": metadata}
-        signal.connect(lambda x: self._sample_state_machine_input_handler(x, formatter, before))
+        signal.connect(lambda x: self._template_state_machine_input_handler(x, formatter, before, event_line))
 
     def add_eventstring_handler(self, event_line_name, event_line_port):
         from pyBehavior.interfaces.ni import EventstringSender

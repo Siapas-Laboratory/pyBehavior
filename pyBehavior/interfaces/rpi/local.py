@@ -1,5 +1,4 @@
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox, QComboBox, QFrame
 from PyQt5.QtGui import  QDoubleValidator
 import time
