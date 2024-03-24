@@ -1,13 +1,28 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLineEdit, QLabel, QCheckBox, QComboBox, QFrame
+from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QComboBox, QFrame
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
+import typing
 
 
 class PumpConfig(QFrame):
+    """
+    a widget for controlling a pump on the ratBerryPi remotely
+    through a client
 
+    ...
+    Methods
+    
+    calibrate()
+    fill_lines(modules, fill_all)
+    empty_lines()
+    toggle_auto_fill(on)
+    change_syringe(syringe_type)
+    push_to_res(amount)
+
+    """
     def __init__(self, client, pump, modules = None):
         super(PumpConfig, self).__init__()
         self.client = client
@@ -15,40 +30,60 @@ class PumpConfig(QFrame):
         self.modules = modules
 
         vlayout = QVBoxLayout()
+
+        # pump name
         pump_label = QLabel(self.pump)
         vlayout.addWidget(pump_label)
 
+        # label to keep track of the pump piston position
         self.pos_label = QLabel("Position: ")
         vlayout.addWidget(self.pos_label)
+        self.pos_thread = PumpConfig.RPIPumpPosThread(self.client, self.pump)
+        self.pos_thread.pos_updated.connect(self._update_pos)
+        self.pos_thread.start()
 
+        # widget to select syringe
         syringe_layout = QHBoxLayout()
         syringe_label = QLabel("Syringe Type:")
         self.syringe_select = QComboBox()
-        self.syringe_select.addItems(["BD5mL", "BD10mL", "BD30mL"])
+        self.syringe_select.addItems(["BD1mL", "BD3mL", "BD5mL", "BD10mL", "BD30mL"])
         cur_syringe = self.client.get(f"pumps['{self.pump}'].syringe.syringeType")
         self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
         self.syringe_select.currentIndexChanged.connect(self.change_syringe)
-
-        # TODO: need function on server side to change step type and step delay so i can control them step type from here
-        # need a button to fill the lines
-
         syringe_layout.addWidget(syringe_label)
         syringe_layout.addWidget(self.syringe_select)
         vlayout.addLayout(syringe_layout)
 
+        # TODO: need function on server side to change step type and step delay so i can control them from here\
+
+        # widget to control auto-fill
+        auto_fill_layout = QHBoxLayout()
+        auto_fill_thresh_label = QLabel("Auto Fill Threshold Fraction: ")
+        self.auto_fill_thresh = QLineEdit()
+        self.auto_fill_thresh.setText(self.client.get(f"auto_fill_frac_thresh"))
+        self.auto_fill_thresh.setValidator(QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation))
+        self.auto_fill_thresh.textChanged.connect(self.set_auto_fill_frac_thresh)
         self.auto_fill_btn = QPushButton("Toggle Auto-Fill")
         self.auto_fill_btn.setCheckable(True)
         init_state = bool(self.client.get(f"auto_fill"))
         self.auto_fill_btn.setChecked(init_state)
         self.auto_fill_btn.clicked.connect(self.toggle_auto_fill)
-        vlayout.addWidget(self.auto_fill_btn)
+        auto_fill_layout.addWidget(auto_fill_thresh_label)
+        auto_fill_layout.addWidget(self.auto_fill_thresh)
+        auto_fill_layout.addWidget(self.auto_fill_btn)
+        vlayout.addLayout(auto_fill_layout)
 
+        # button to fill the lines
         self.fill_btn = QPushButton("Fill Lines")
         self.fill_btn.clicked.connect(self.fill_lines)
         vlayout.addWidget(self.fill_btn)
 
-        #TODO: add a fill all lines button
+        # button to fill all the lines
+        self.fill_all_btn = QPushButton("Fill all lines")
+        self.fill_all_btn.clicked.connect(lambda x: self.fill_lines(fill_all = True))
+        vlayout.addWidget(self.fill_all_btn)
 
+        # widget to push some fluid to the reservoir
         push_res_label = QLabel("Push To Reservoir")
         vlayout.addWidget(push_res_label)
         push_res_layout = QHBoxLayout()
@@ -63,62 +98,147 @@ class PumpConfig(QFrame):
         push_res_layout.addWidget(self.push_res_btn)
         vlayout.addLayout(push_res_layout)
 
+        # button to empty all of the lines
         self.empty_btn = QPushButton("Empty Lines")
         self.empty_btn.clicked.connect(self.empty_lines)
         vlayout.addWidget(self.empty_btn)
 
-
+        # button to calibrate the pump
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.clicked.connect(self.calibrate)
         vlayout.addWidget(self.calibrate_btn)
 
-        self.pos_thread = PumpConfig.RPIPumpPosThread(self.client, self.pump)
-        self.pos_thread.pos_updated.connect(self.update_pos)
-        self.pos_thread.start()
-
+        # some formatting
         self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
         self.setLineWidth(1)
-
         vlayout.addLayout(syringe_layout)
         self.setLayout(vlayout)
 
-    def calibrate(self):
+    def _update_pos(self, pos:float) -> None:
+        self.pos_label.setText(f"Position: {pos:.3f} cm")
+
+    def calibrate(self) -> None:
+        """
+        set pump position to 0
+        """
         self.client.run_command('calibrate', {'pump': self.pump}, channel = 'run')
 
+    def fill_lines(self, modules:typing.List[str] = None, fill_all:bool = False) -> None:
+        """
+        fill all of the lines leading to the modules
+        this call is blocking currently so the gui will freeze
 
-    def fill_lines(self):
-        self.client.run_command('fill_lines', {'modules': self.modules}, channel = 'run')
+        TODO: neeed to handle the freezing more gracefully
+        maybe a little loading window?
 
-    def empty_lines(self):
+        Args:
+            modules: typing.List[str] (optional)
+                list of modules to fill lines for
+                default behavior is to fill lines
+                for all modules associated to this pump widget
+        """
+
+        if fill_all:
+            modules = None
+        elif modules is None:
+            modules = self.modules
+
+        self.client.run_command('fill_lines', {'modules': modules}, channel = 'run')
+
+    def empty_lines(self) -> None:
+        """
+        empty all of the lines leading to the modules
+        NOTE: this can only work by emptying all lines 
+        for all modules associated to the pump on the 
+        ratBerryPi side
+
+        TODO: neeed to handle the freezing more gracefully
+        maybe a little loading window?
+        """
+
         self.client.run_command('empty_lines', {}, channel = 'run')
 
-    def toggle_auto_fill(self):
-        args = {
-            'on': not bool(self.client.get(f"auto_fill"))
-        }
-        self.client.run_command('toggle_auto_fill', args, channel = 'run')
+    def toggle_auto_fill(self, on:bool = None) -> None:
+        """
+        toggle whether or not the pumps on the reward interface
+        are in auto-fill mode (i.e. they refill the syringes
+
+        Args:
+            on: bool (optional)
+                whether to turn on auto-fill
+                default behavior is to toggle to 
+                the opposite of the current state
+        """
+
+        on = on if on is not None else not bool(self.client.get(f"auto_fill"))
+        self.client.run_command('toggle_auto_fill', {'on': on}, channel = 'run')
         time.sleep(.1)
         self.auto_fill_btn.setChecked(bool(self.client.get(f"auto_fill")))
 
-    def change_syringe(self):
+    def set_auto_fill_frac_thresh(self, value:float = None) -> None:
+        """
+        set the threshold fraction of the syringe volume
+        at which to trigger a refill
+
+        Args:
+            value: float (optional)
+                new threshold value
+        """
+        
+        value = value if value is not None else float(self.auto_fill_thresh.text())
+        self.client.run_command('set_auto_fill_frac_thresh', {'value': value}, channel = 'run')
+        self.auto_fill_thresh.setText(f"{value}")
+
+    def change_syringe(self, syringe_type:str = None) -> None:
+        """
+        change the syringe type
+
+        Args:
+            syringe_type: str (optional)
+                new syringe type. must be a syringe in the list of syringe types
+                default behavior is to use the currently selected syringe type
+        """
+
+        syringe_type = syringe_type if syringe_type is not None else self.syringe_select.currentText()
+        idx = self.syringe_select.findText(syringe_type)
+        if idx == -1:
+            raise ValueError('Invalid syringe type specified')
+        
         args = {
             'pump': self.pump,
-            'syringeType': self.syringe_select.currentText()
+            'syringeType': syringe_type
         }
         self.client.run_command('change_syringe', args, channel = 'run')
+        self.syringe_select.setCurrentIndex(idx)
 
-    def push_to_res(self):
+    def push_to_res(self, amount:float = None) -> None:
+        """
+        push a specified amount of fluid to the reservoir
+
+        Args:
+            amount: float (optional)
+                amount of fluid to push in mL
+                default behavior is to use the value set in
+                the gui
+        """
+
+        amount = amount if amount is not None else float(self.push_amt.text())
         args = {
             'pump': self.pump,
-            'amount': float(self.push_amt.text())
+            'amount': amount
         }
         self.client.run_command('push_to_reservoir', args, channel = 'run')
-
-    def update_pos(self, pos):
-        self.pos_label.setText(f"Position: {pos:.3f} cm")
         
     class RPIPumpPosThread(QThread):
-        pos_updated = pyqtSignal(object)
+        """
+        thread to keep track of pump piston position
+
+        ...
+        PyQt Signals
+
+        pos_updated(float)
+        """
+        pos_updated = pyqtSignal(float)
         def __init__(self, client, pump):
             super(PumpConfig.RPIPumpPosThread, self).__init__()
             self.client = client
@@ -141,7 +261,7 @@ class PumpConfig(QFrame):
 
 class RPIRewardControl(RewardWidget):
     """
-    A widget for controlling ratBerryPi reward modules locally on the pi
+    A widget for controlling ratBerryPi reward modules remotely through a client
 
     ...
     PyQt Signals
@@ -188,7 +308,7 @@ class RPIRewardControl(RewardWidget):
         reset_btn.clicked.connect(self.reset_licks)
         lick_layout.addWidget(reset_btn)
         vlayout.addLayout(lick_layout)
-        self.lick_thread = RPILickThread(self.client, self.module)
+        self.lick_thread = RPIRewardControl.RPILickThread(self.client, self.module)
         self.lick_thread.lick_num_updated.connect(self._update_licks)
         self.lick_thread.start()
 
@@ -418,32 +538,37 @@ class RPIRewardControl(RewardWidget):
         if not status=='SUCCESS\n':
             print('error status', status)
 
+    class RPILickThread(QThread):
+        """
+        thread to monitor licks on the pi
 
-class RPILickThread(QThread):
-    """
-    thread to monitor licks on the pi
-    """
+        ...
+        PyQt Signals
 
-    lick_num_updated = pyqtSignal(int)
-    
-    def __init__(self, client, module):
-        super(RPILickThread, self).__init__()
-        self.client = client
-        self.module = module
-        self.client.new_channel(f"{self.module}_licks")
-    
-    def run(self):
-        prev_licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
-                                            channel = f"{self.module}_licks"))
-        while True:
-            try:
-                licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
-                                            channel = f"{self.module}_licks"))
-                if licks!=prev_licks:
-                    self.lick_num_updated.emit(licks - prev_licks)
-                    prev_licks = licks
-            except ValueError as e:
-                print(f"invalid read on '{self.module}'")
-                raise e
-            finally:
-                time.sleep(.005)
+        lick_num_updated(int)
+
+        """
+
+        lick_num_updated = pyqtSignal(int)
+        
+        def __init__(self, client, module):
+            super(RPIRewardControl.RPILickThread, self).__init__()
+            self.client = client
+            self.module = module
+            self.client.new_channel(f"{self.module}_licks")
+        
+        def run(self):
+            prev_licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                                channel = f"{self.module}_licks"))
+            while True:
+                try:
+                    licks = int(self.client.get(f"modules['{self.module}'].lickometer.licks",
+                                                channel = f"{self.module}_licks"))
+                    if licks!=prev_licks:
+                        self.lick_num_updated.emit(licks - prev_licks)
+                        prev_licks = licks
+                except ValueError as e:
+                    print(f"invalid read on '{self.module}'")
+                    raise e
+                finally:
+                    time.sleep(.005)

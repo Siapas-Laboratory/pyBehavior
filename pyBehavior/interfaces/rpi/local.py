@@ -3,12 +3,26 @@ from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLin
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
-from ratBerryPi.resources.pump import TriggerMode
+from ratBerryPi.resources.pump import Syringe
 from ratBerryPi.interfaces import RewardInterface
 import typing
 
 
 class PumpConfig(QFrame):
+    """
+    a widget for controlling a pump on the ratBerryPi locally
+
+    ...
+    Methods
+    
+    calibrate()
+    fill_lines(modules, fill_all)
+    empty_lines()
+    toggle_auto_fill(on)
+    change_syringe(syringe_type)
+    push_to_res(amount)
+
+    """
 
     def __init__(self, interface:RewardInterface, pump:str, modules:typing.List[str] = None):
         super(PumpConfig, self).__init__()
@@ -18,27 +32,38 @@ class PumpConfig(QFrame):
         self.modules = modules
 
         vlayout = QVBoxLayout()
+
+        # pump name
         pump_label = QLabel(self.pump)
         vlayout.addWidget(pump_label)
 
+        # label to keep track of the pump piston position
         self.pos_label = QLabel("Position: ")
         vlayout.addWidget(self.pos_label)
+        self.interface.pumps[self.pump].pos_updater.pos_updated.connect(self._update_pos)
 
+        # widget to select syringe
         syringe_layout = QHBoxLayout()
         syringe_label = QLabel("Syringe Type:")
         self.syringe_select = QComboBox()
-        self.syringe_select.addItems(["BD5mL", "BD10mL", "BD30mL"])
+        self.syringe_select.addItems(list(Syringe.syringeTypeDict.keys()))
         cur_syringe = self.interface.pumps[self.pump].syringe.syringeType
         self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
         self.syringe_select.currentIndexChanged.connect(self.change_syringe)
-
-        # TODO: need function on server side to change step type and step delay so i can control them step type from here
-        # need a button to fill the lines
-
         syringe_layout.addWidget(syringe_label)
         syringe_layout.addWidget(self.syringe_select)
         vlayout.addLayout(syringe_layout)
 
+        # TODO: need function on server side to change step type and step delay so i can control them step type from here
+        # need a button to fill the lines
+        
+        # widget to control auto-fill
+        auto_fill_layout = QHBoxLayout()
+        auto_fill_thresh_label = QLabel("Auto Fill Threshold Fraction: ")
+        self.auto_fill_thresh = QLineEdit()
+        self.auto_fill_thresh.setText(f"{self.interface.auto_fill_frac_thresh}")
+        self.auto_fill_thresh.setValidator(QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation))
+        self.auto_fill_thresh.textChanged.connect(self.set_auto_fill_frac_thresh)
         self.auto_fill_btn = QPushButton("Toggle Auto-Fill")
         self.auto_fill_btn.setCheckable(True)
         init_state = self.interface.auto_fill
@@ -46,12 +71,17 @@ class PumpConfig(QFrame):
         self.auto_fill_btn.clicked.connect(self.toggle_auto_fill)
         vlayout.addWidget(self.auto_fill_btn)
 
+        # button to fill the lines
         self.fill_btn = QPushButton("Fill Lines")
         self.fill_btn.clicked.connect(self.fill_lines)
         vlayout.addWidget(self.fill_btn)
 
-        #TODO: add a fill all lines button
+        # button to fill all the lines
+        self.fill_all_btn = QPushButton("Fill all lines")
+        self.fill_all_btn.clicked.connect(lambda x: self.fill_lines(fill_all = True))
+        vlayout.addWidget(self.fill_all_btn)
 
+        # widget to push some fluid to the reservoir
         push_res_label = QLabel("Push To Reservoir")
         vlayout.addWidget(push_res_label)
         push_res_layout = QHBoxLayout()
@@ -66,46 +96,125 @@ class PumpConfig(QFrame):
         push_res_layout.addWidget(self.push_res_btn)
         vlayout.addLayout(push_res_layout)
 
+        # button to empty all of the lines
         self.empty_btn = QPushButton("Empty Lines")
         self.empty_btn.clicked.connect(self.empty_lines)
         vlayout.addWidget(self.empty_btn)
 
-
+        # button to calibrate the pump
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.clicked.connect(self.calibrate)
         vlayout.addWidget(self.calibrate_btn)
 
-        self.interface.pumps[self.pump].pos_updater.pos_updated.connect(self.update_pos)
-
+        # some formatting
         self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
         self.setLineWidth(1)
-
         vlayout.addLayout(syringe_layout)
         self.setLayout(vlayout)
 
-    def calibrate(self):
+    def _update_pos(self, pos: float) -> None:
+        self.pos_label.setText(f"Position: {pos:.3f} cm")
+
+    def calibrate(self) -> None:
+        """
+        set pump position to 0
+        """
         self.interface.calibrate(self.pump)
 
-    def fill_lines(self):
-        self.interface.fill_lines(self.modules)
+    def fill_lines(self, modules:typing.List[str] = None, fill_all:bool = False):
+        """
+        fill all of the lines leading to the modules
+        this call is blocking currently so the gui will freeze
+
+        TODO: neeed to handle the freezing more gracefully
+        maybe a little loading window?
+
+        Args:
+            modules: typing.List[str] (optional)
+                list of modules to fill lines for
+                default behavior is to fill lines
+                for all modules associated to this pump widget
+        """
+
+        if fill_all:
+            modules = None
+        elif modules is None:
+            modules = self.modules
+
+        self.interface.fill_lines(modules)
 
     def empty_lines(self):
+        """
+        empty all of the lines leading to the modules
+        NOTE: this can only work by emptying all lines 
+        for all modules associated to the pump on the 
+        ratBerryPi side
+
+        TODO: neeed to handle the freezing more gracefully
+        maybe a little loading window?
+        """
+
         self.interface.empty_lines()
 
-    def toggle_auto_fill(self):
-        self.interface.toggle_auto_fill(on = not self.interface.auto_fill)
+    def toggle_auto_fill(self, on:bool = None) -> None:
+        """
+        toggle whether or not the pumps on the reward interface
+        are in auto-fill mode (i.e. they refill the syringes
+
+        Args:
+            on: bool (optional)
+                whether to turn on auto-fill
+                default behavior is to toggle to 
+                the opposite of the current state
+        """
+
+        on = on if on is not None else not self.interface.auto_fill
+        self.interface.toggle_auto_fill(on = on)
         time.sleep(.1)
         self.auto_fill_btn.setChecked(self.interface.auto_fill)
 
-    def change_syringe(self):
-        self.interface.change_syringe(pump = self.pump, 
-                                      syringeType = self.syringe_select.currentText())
-        
-    def push_to_res(self):
-        self.interface.push_to_reservoir(pump = self.pump, amount = float(self.push_amt.text()) )
+    def set_auto_fill_frac_thresh(self, value:float = None) -> None:
+        """
+        set the threshold fraction of the syringe volume
+        at which to trigger a refill
 
-    def update_pos(self, pos):
-        self.pos_label.setText(f"Position: {pos:.3f} cm")
+        Args:
+            value: float (optional)
+                new threshold value
+        """
+        
+        value = value if value is not None else float(self.auto_fill_thresh.text())
+        self.interface.set_auto_fill_frac_thresh(value)
+        self.auto_fill_thresh.setText(f"{value}")
+
+    def change_syringe(self, syringe_type:str = None) -> None:
+        """
+        change the syringe type
+
+        Args:
+            syringe_type: str (optional)
+                new syringe type. must be a syringe in the list of syringe types
+                default behavior is to use the currently selected syringe type
+        """
+        syringe_type = syringe_type if syringe_type is not None else self.syringe_select.currentText()
+        self.interface.change_syringe(pump = self.pump, 
+                                      syringeType = syringe_type)
+        idx = self.syringe_select.findText(syringe_type)
+        self.syringe_select.setCurrentIndex(idx)
+        
+    def push_to_res(self, amount:float = None) -> None:
+        """
+        push a specified amount of fluid to the reservoir
+
+        Args:
+            amount: float (optional)
+                amount of fluid to push in mL
+                default behavior is to use the value set in
+                the gui
+        """
+
+        amount = amount if amount is not None else float(self.push_amt.text())
+        self.interface.push_to_reservoir(pump = self.pump, amount = amount)
 
         
 

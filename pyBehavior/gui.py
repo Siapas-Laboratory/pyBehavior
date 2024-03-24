@@ -136,6 +136,7 @@ class SetupGUI(QMainWindow):
         self.running = True
 
     def _stop_protocol(self):
+
         self.running = False
         if self.has_rpi: 
             rpi_data_path = self.client.get('data_path')
@@ -174,17 +175,58 @@ class SetupGUI(QMainWindow):
             if self.state_machine.current_state.id != curr_state:
                 self.log(f"entered state {self.state_machine.current_state.id}", event_line)
 
-    def trigger_reward(self, module, amount, **kwargs):
+    def trigger_reward(self, module:str, amount:float, **kwargs):
+        """
+        trigger reward on a specified module
+
+        Args:
+            module: str
+                module to deliver the reward to
+            amount: float
+                amount of reward in mL
+        """
+
         self.log(f"triggering {amount:.2f} mL reward on module {module}")
         self.reward_modules[module].trigger_reward(amount, **kwargs)
 
-    def log(self, event, event_line = None):
+    def log(self, event:str, event_line:str = None):
+        """
+        log events. optionally simmultaneously
+        send an event string using an EventstringSender
+        NOTE: currently EventstringSender is only configured
+        to toggle digital lines on a national instruments card
+
+        Args:
+            event: str
+                event to log
+            event_line: str (optional)
+                name of the event line to use to log
+        """
+
         if event_line:
             self.eventstring_handlers[event_line].send(event)
         else:
             self.logger.info(event)
 
-    def init_NIDIDaemon(self, channels, fs = 1000, start = False):
+    def init_NIDIDaemon(self, channels:dict, fs:float = 1000, start:bool = False):
+        """
+        start a daemon to monitor digital input lines on a
+        national instruments card
+
+        Args:
+            channels: dict
+                dictionary with keys being human readable
+                names for digital inputs and values being the
+                associated address of the digital line
+            fs: float (optional)
+                sampling rate for polling the digital lines
+                in Hz [default: 1000]
+            start: bool
+                whether or not to start the daemon
+                [default: True]
+                
+        """
+        
         from pyBehavior.interfaces.ni import NIDIDaemon
         self.di_daemon = NIDIDaemon(fs)
         for i, v in channels.items():
@@ -197,11 +239,43 @@ class SetupGUI(QMainWindow):
             self.di_daemon_thread.start()
         return self.di_daemon, self.di_daemon_thread
     
-    def register_state_machine_input(self, signal:pyqtSignal, input_type:str, metadata = None, before:typing.Callable = None, event_line:str = None):
+    def register_state_machine_input(self, signal:pyqtSignal, input_type:str, metadata = None, 
+                                     before:typing.Callable = None, event_line:str = None):
+        """
+        register a pyqtsiganl as an input to the state machine
+        running a protocol
+
+        Args:
+            signal: pyqtSignal
+                signal to register
+            input_type: str
+                identifier for the type of input
+                this signal represents
+            metadata:
+                additional metadata to attach to the input
+                data sent to the state machine
+            before: typing.Callable
+                function to call before feeding the input to the state machine
+                this function should take as input the data associated with the signal
+            event_line: str
+                event line to use to log state machine transitions
+        """
+
         formatter = lambda x: {"type": input_type, "data": x, "metadata": metadata}
         signal.connect(lambda x: self._template_state_machine_input_handler(x, formatter, before, event_line))
 
-    def add_eventstring_handler(self, event_line_name, event_line_port):
+    def add_eventstring_handler(self, event_line_name:str, event_line_port:str):
+        """
+        add a new eventstring handler. 
+
+        Args:
+            event_line_name: str
+                name to assign to event line
+            event_line_port: str
+                address of the digital line to toggle when
+                raising this event line
+        """
+
         from pyBehavior.interfaces.ni import EventstringSender
         self.eventstring_handlers[event_line_name] = EventstringSender(self, event_line_name, event_line_port)
         return self.eventstring_handlers[event_line_name] 
