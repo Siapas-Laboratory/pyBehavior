@@ -38,7 +38,7 @@ class PumpConfig(QFrame):
         vlayout.addWidget(pump_label)
 
         # label to keep track of the pump piston position
-        self.pos_label = QLabel("Position: ")
+        self.pos_label = QLabel(f"Position: {self.interface.pumps[self.pump].position}")
         vlayout.addWidget(self.pos_label)
         self.interface.pumps[self.pump].pos_updater.pos_updated.connect(self._update_pos)
 
