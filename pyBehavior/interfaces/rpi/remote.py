@@ -60,7 +60,7 @@ class PumpConfig(QFrame):
         auto_fill_layout = QHBoxLayout()
         auto_fill_thresh_label = QLabel("Auto Fill Threshold Fraction: ")
         self.auto_fill_thresh = QLineEdit()
-        self.auto_fill_thresh.setText(self.client.get(f"auto_fill_frac_thresh"))
+        self.auto_fill_thresh.setText(f"{self.client.get('auto_fill_frac_thresh')}")
         self.auto_fill_thresh.setValidator(QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation))
         self.auto_fill_thresh.textChanged.connect(self.set_auto_fill_frac_thresh)
         self.auto_fill_btn = QPushButton("Toggle Auto-Fill")
