@@ -1,6 +1,7 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QFileDialog, QFrame
+from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, 
+                             QComboBox, QFileDialog, QFrame, QLineEdit)
 from pathlib import Path
 from datetime import datetime
 import importlib
@@ -308,3 +309,13 @@ class ModuleDict(UserDict):
         else:
             raise ValueError("entries in ModuleDict must be instances of subclasses of gui.RewardWidget")
     
+class LoggableLineEdit(QLineEdit):
+
+    def __init__(self, logger, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = logger
+        self.name = name
+        self.textChanged.connect(self.log_change)
+
+    def log_change(self, text):
+        self.logger.info(f"{self.name} updated to {self.text()}")
