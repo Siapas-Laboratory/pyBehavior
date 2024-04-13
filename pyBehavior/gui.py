@@ -311,7 +311,7 @@ class ModuleDict(UserDict):
     
 class LoggableLineEdit(QLineEdit):
 
-    def __init__(self, logger, name, *args, **kwargs):
+    def __init__(self, name, logger, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger = logger
         self.name = name
