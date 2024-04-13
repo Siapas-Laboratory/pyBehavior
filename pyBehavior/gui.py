@@ -311,11 +311,11 @@ class ModuleDict(UserDict):
     
 class LoggableLineEdit(QLineEdit):
 
-    def __init__(self, name, logger, *args, **kwargs):
+    def __init__(self, name, gui:SetupGUI, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.logger = logger
+        self.gui = gui
         self.name = name
         self.textChanged.connect(self.log_change)
 
     def log_change(self, text):
-        self.logger.info(f"{self.name} updated to {self.text()}")
+        self.gui.log(f"{self.name} updated to {self.text()}")
