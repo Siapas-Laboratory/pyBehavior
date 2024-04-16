@@ -317,5 +317,5 @@ class LoggableLineEdit(QLineEdit):
         self.name = name
         self.editingFinished.connect(self.log_change)
 
-    def log_change(self, text):
+    def log_change(self):
         self.gui.log(f"{self.name} updated to {self.text()}")

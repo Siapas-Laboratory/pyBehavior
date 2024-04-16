@@ -75,7 +75,7 @@ class PumpConfig(QFrame):
 
         # button to fill the lines
         self.fill_btn = QPushButton("Fill Lines")
-        self.fill_btn.clicked.connect(self.fill_lines)
+        self.fill_btn.clicked.connect(lambda x: self.fill_lines())
         vlayout.addWidget(self.fill_btn)
 
         # button to fill all the lines
