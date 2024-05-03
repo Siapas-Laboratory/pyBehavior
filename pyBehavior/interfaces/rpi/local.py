@@ -24,12 +24,13 @@ class PumpConfig(QFrame):
 
     """
 
-    def __init__(self, interface:RewardInterface, pump:str, modules:typing.List[str] = None):
+    def __init__(self, interface:RewardInterface, pump:str, parent, modules:typing.List[str] = None):
         super(PumpConfig, self).__init__()
 
         self.interface = interface
         self.pump = pump
         self.modules = modules
+        self.parent = parent
 
         vlayout = QVBoxLayout()
 
@@ -241,11 +242,12 @@ class RPIRewardControl(RewardWidget):
 
     new_lick = pyqtSignal(bool, name = "newLick")
 
-    def __init__(self, interface:RewardInterface, module:str):
+    def __init__(self, interface:RewardInterface, module:str, parent):
 
         super(RPIRewardControl, self).__init__()
         self.interface = interface
         self.module = module
+        self.parent = parent
     
         vlayout= QVBoxLayout()
 
@@ -366,10 +368,14 @@ class RPIRewardControl(RewardWidget):
         self.new_lick.emit(True)
 
     def _single_pulse(self) -> None:
-        self.trigger_reward(float(self.amt.text()))
+        amt = float(self.amt.text())
+        self.parent.log(f"manually pulsing {amt} mL to {self.module}")
+        self.trigger_reward(amt)
 
     def _small_pulse(self) -> None:
-        self.trigger_reward(float(self.small_pulse_frac.text()) * float(self.amt.text()))
+        amt = float(self.small_pulse_frac.text()) * float(self.amt.text())
+        self.parent.log(f"manually pulsing {amt} mL to {self.module}")
+        self.trigger_reward(amt)
     
     def reset_licks(self) -> None:
         """

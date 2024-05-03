@@ -132,12 +132,12 @@ class SetupGUI(QMainWindow):
         self._start_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
         self._prot_select.setEnabled(False)
-
+        self.log("starting protocol")
         # raise flag saying that we're running
         self.running = True
 
     def _stop_protocol(self):
-
+        self.log("stopping protocol")
         self.running = False
         if self.has_rpi: 
             rpi_data_path = self.client.get('data_path')
@@ -174,9 +174,9 @@ class SetupGUI(QMainWindow):
             curr_state = self.state_machine.current_state.id
             self.state_machine.handle_input(formatter(data))
             if self.state_machine.current_state.id != curr_state:
-                self.log(f"entered state {self.state_machine.current_state.id}", event_line)
+                self.log(f"STATE MACHINE ENTERED STATE: {self.state_machine.current_state.id}", event_line)
 
-    def trigger_reward(self, module:str, amount:float, **kwargs):
+    def trigger_reward(self, module:str, amount:float, event_line:str = None, **kwargs):
         """
         trigger reward on a specified module
 
@@ -187,10 +187,10 @@ class SetupGUI(QMainWindow):
                 amount of reward in mL
         """
 
-        self.log(f"triggering {amount:.2f} mL reward on module {module}")
+        self.log(f"triggering {amount:.2f} mL reward on module {module}", event_line=event_line)
         self.reward_modules[module].trigger_reward(amount, **kwargs)
 
-    def log(self, event:str, event_line:str = None):
+    def log(self, event:str, event_line:str = None, raise_event_line:bool = True):
         """
         log events. optionally simmultaneously
         send an event string using an EventstringSender
@@ -206,6 +206,10 @@ class SetupGUI(QMainWindow):
 
         if event_line:
             self.eventstring_handlers[event_line].send(event)
+        elif raise_event_line:
+            if len(self.eventstring_handlers)>0:
+                event_line = list(self.eventstring_handlers.keys())[0]
+                self.eventstring_handlers[event_line].send(event)
         else:
             self.logger.info(event)
 
@@ -311,11 +315,14 @@ class ModuleDict(UserDict):
     
 class LoggableLineEdit(QLineEdit):
 
-    def __init__(self, name, gui:SetupGUI, *args, **kwargs):
+    def __init__(self, name, gui:SetupGUI, event_line:str = None, raise_event_line:bool = True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.gui = gui
         self.name = name
+        self.event_line = event_line
+        self.raise_event_line = raise_event_line
         self.editingFinished.connect(self.log_change)
 
     def log_change(self):
-        self.gui.log(f"{self.name} updated to {self.text()}")
+
+        self.gui.log(f"{self.name} updated to {self.text()}", event_line=self.event_line, raise_event_line=self.raise_event_line)
