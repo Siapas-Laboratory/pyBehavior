@@ -5,11 +5,21 @@ from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QL
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from datetime import datetime
-from nidaqmx import constants, Task, errors
+import nidaqmx
 import logging
 import time
 from pyBehavior.gui import RewardWidget
 import socket
+
+
+def daqmx_supported():
+    try:
+        with nidaqmx.Task() as task: pass
+        return True
+    except (nidaqmx._lib.DaqNotFoundError, nidaqmx.errors.DaqNotSupportedError):
+        return False
+        
+
 
 class NIDIChan(QObject):
 
@@ -32,7 +42,7 @@ class NIDIDaemon(QObject):
 
         dev = channel.split('/')[0]
         if dev not in self.tasks:
-            self.tasks[dev] = {'task_handle': Task(),
+            self.tasks[dev] = {'task_handle': nidaqmx.Task(),
                                'channel_names': [name]}
         else:
             self.tasks[dev]['channel_names'].append(name)
@@ -80,7 +90,7 @@ class NIDIDaemon(QObject):
 
 
 def digital_write(port, value):
-    with Task() as task:
+    with nidaqmx.Task() as task:
         task.do_channels.add_do_chan(port)
         task.write(value, auto_start = True)
         task.wait_until_done()
@@ -155,7 +165,7 @@ class NIRewardControl(RewardWidget):
         vlayout.addLayout(pulse_mult_layout)      
         self.setLayout(vlayout)
 
-        with Task() as task:
+        with nidaqmx.Task() as task:
             task.do_channels.add_do_chan(purge_port)
             task.do_channels.add_do_chan(flush_port)
             task.do_channels.add_do_chan(bleed_port1)

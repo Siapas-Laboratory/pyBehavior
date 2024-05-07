@@ -208,7 +208,8 @@ class Settings(QMainWindow):
             self.body_layout.addWidget(del_btn, i, 2)
 
     def scan_ports(self):
-        try:
+        from pyBehavior.interfaces.ni import daqmx_supported
+        if daqmx_supported():
             system = nidaqmx.system.System.local()
             channels = []
             for dev in system.devices:
@@ -216,10 +217,9 @@ class Settings(QMainWindow):
                 channels += [i.name for i in dev.do_lines]
                 channels += [i.name for i in dev.ai_physical_chans] 
                 channels += [i.name for i in dev.ao_physical_chans]
-            channels = np.unique(channels).tolist()
-        except (nidaqmx._lib.DaqNotFoundError, nidaqmx.errors.DaqNotSupportedError):
-            channels = []
-        return channels
+            return np.unique(channels).tolist()
+        else:
+            return []
 
     def get_all_ports(self):
         channels = self.scan_ports()
