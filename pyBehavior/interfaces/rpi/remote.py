@@ -50,12 +50,44 @@ class PumpConfig(QFrame):
         self.syringe_select.addItems(["BD1mL", "BD3mL", "BD5mL", "BD10mL", "BD30mL"])
         cur_syringe = self.client.get(f"pumps['{self.pump}'].syringe.syringeType")
         self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
-        self.syringe_select.currentIndexChanged.connect(self.change_syringe)
+        self.syringe_select.currentIndexChanged.connect(lambda x: self.change_syringe(None))
         syringe_layout.addWidget(syringe_label)
         syringe_layout.addWidget(self.syringe_select)
         vlayout.addLayout(syringe_layout)
 
-        # TODO: need function on server side to change step type and step delay so i can control them from here\
+        # widget to change step type
+        step_type_layout = QHBoxLayout()
+        step_type_label = QLabel("Microstep Type: ")
+        self.step_type_select = QComboBox()
+        self.step_type_select.addItems(['Full', 'Half', '1/4', '1/8', '1/16', '1/32'])
+        cur_microstep = self.client.get(f"pumps['{self.pump}'].stepType")
+        self.step_type_select.setCurrentIndex(self.step_type_select.findText(cur_microstep))
+        self.step_type_select.currentIndexChanged.connect(lambda x: self.set_microstep_type(None))
+        step_type_layout.addWidget(step_type_label)
+        step_type_layout.addWidget(self.step_type_select)
+        vlayout.addLayout(step_type_layout)
+
+        #widget to set step speed
+        step_speed_layout = QHBoxLayout()
+        step_speed_label = QLabel("Microstep Rate (steps/s): ")
+        self.step_speed = QLineEdit()
+        cur_speed =self.client.get(f"pumps['{self.pump}'].speed")
+        self.step_speed.setText(f"{cur_speed}")
+        self.step_speed.editingFinished.connect(lambda x: self.set_step_speed(None))
+        step_speed_layout.addWidget(step_speed_label)
+        step_speed_layout.addWidget(self.step_speed)
+        vlayout.addLayout(step_speed_layout)
+
+        #widget to set flow rate
+        flow_rate_layout = QHBoxLayout()
+        flow_rate_label = QLabel("Flow Rate (mL/s): ")
+        self.flow_rate = QLineEdit()
+        cur_flow_rate =self.client.get(f"pumps['{self.pump}'].flow_rate")
+        self.flow_rate.setText(f"{cur_flow_rate}")
+        self.flow_rate.editingFinished.connect(lambda x: self.set_flow_rate(None))
+        flow_rate_layout.addWidget(flow_rate_label)
+        flow_rate_layout.addWidget(self.flow_rate)
+        vlayout.addLayout(flow_rate_layout)
 
         # widget to control auto-fill
         auto_fill_layout = QHBoxLayout()
@@ -190,6 +222,60 @@ class PumpConfig(QFrame):
         self.client.run_command('set_auto_fill_frac_thresh', {'value': value}, channel = 'run')
         self.auto_fill_thresh.setText(f"{value}")
 
+    def set_microstep_type(self, step_type:str = None) -> None:
+        """
+        set microstepping level of the pump
+        
+        Args:
+            step_type: str
+                type of microstepping to set the motor to. 
+                must be a value listed in ratBerryPi.resources.pump.Pump.step_types:
+                ['Full', 'Half', '1/4', '1/8', '1/16', '1/32']
+
+        """
+        step_type = step_type if step_type is not None else self.step_type_select.currentText()
+        idx = self.step_type_select.findText(step_type)
+        if idx == -1:
+            raise ValueError('Invalid syringe type specified')
+        
+        args = {
+            'pump': self.pump,
+            'stepType': step_type
+        }
+        self.client.run_command('set_microstep_type', args, channel = 'run')
+        self.step_type_select.setCurrentIndex(idx)
+        flow_rate = float(self.client.get(f"pumps['{self.pump}'].flow_rate", channel = self.pump))
+        self.flow_rate.setText(f"{flow_rate}")
+
+    def set_step_speed(self, speed:float=None) -> None:
+        """
+        set the flow rate of the pump
+        """
+        speed = speed if speed is not None else float(self.step_speed.text())     
+        args = {
+            'pump': self.pump,
+            'speed': speed
+        }
+        self.client.run_command('set_step_speed', args, channel = 'run')
+        self.step_speed.setText(f"{speed}")
+        flow_rate = float(self.client.get(f"pumps['{self.pump}'].flow_rate", channel = self.pump))
+        self.flow_rate.setText(f"{flow_rate}")
+
+
+    def set_flow_rate(self, flow_rate:float=None) -> None:
+        """
+        set the flow rate of the pump
+        """
+        flow_rate = flow_rate if flow_rate is not None else float(self.flow_rate.text())     
+        args = {
+            'pump': self.pump,
+            'flow_rate': flow_rate
+        }
+        self.client.run_command('set_flow_rate', args, channel = 'run')
+        self.flow_rate.setText(f"{flow_rate}")
+        speed = float(self.client.get(f"pumps['{self.pump}'].speed", channel = self.pump))
+        self.step_speed.setText(f"{speed}")
+
     def change_syringe(self, syringe_type:str = None) -> None:
         """
         change the syringe type
@@ -211,6 +297,8 @@ class PumpConfig(QFrame):
         }
         self.client.run_command('change_syringe', args, channel = 'run')
         self.syringe_select.setCurrentIndex(idx)
+        flow_rate = float(self.client.get(f"pumps['{self.pump}'].flow_rate", channel = self.pump))
+        self.flow_rate.setText(f"{flow_rate}")
 
     def push_to_res(self, amount:float = None) -> None:
         """
