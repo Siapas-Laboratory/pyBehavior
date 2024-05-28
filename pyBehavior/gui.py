@@ -7,7 +7,7 @@ from datetime import datetime
 import importlib
 import yaml
 import os
-from ratBerryPi.client import Client
+from ratBerryPi.remote.client import Client
 from abc import ABCMeta, abstractmethod
 from collections import UserDict
 from pyBehavior.protocols import *

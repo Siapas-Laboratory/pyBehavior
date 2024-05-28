@@ -4,7 +4,7 @@ from PyQt5.QtGui import  QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
 from ratBerryPi.resources.pump import Syringe, Pump
-from ratBerryPi.interfaces import RewardInterface
+from ratBerryPi.interface import RewardInterface
 import typing
 
 
@@ -74,7 +74,7 @@ class PumpConfig(QFrame):
         self.step_speed.setValidator(QDoubleValidator())
         cur_speed =self.interface.pumps[self.pump].speed
         self.step_speed.setText(f"{cur_speed}")
-        self.step_speed.editingFinished.connect(lambda x: self.set_step_speed(None))
+        self.step_speed.editingFinished.connect(self.set_step_speed)
         step_speed_layout.addWidget(step_speed_label)
         step_speed_layout.addWidget(self.step_speed)
         vlayout.addLayout(step_speed_layout)
@@ -86,7 +86,7 @@ class PumpConfig(QFrame):
         self.flow_rate.setValidator(QDoubleValidator())
         cur_flow_rate =self.interface.pumps[self.pump].flow_rate
         self.flow_rate.setText(f"{cur_flow_rate}")
-        self.flow_rate.editingFinished.connect(lambda x: self.set_flow_rate(None))
+        self.flow_rate.editingFinished.connect(self.set_flow_rate)
         flow_rate_layout.addWidget(flow_rate_label)
         flow_rate_layout.addWidget(self.flow_rate)
         vlayout.addLayout(flow_rate_layout)
@@ -97,7 +97,7 @@ class PumpConfig(QFrame):
         self.auto_fill_thresh = QLineEdit()
         self.auto_fill_thresh.setText(f"{self.interface.auto_fill_frac_thresh}")
         self.auto_fill_thresh.setValidator(QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation))
-        self.auto_fill_thresh.textChanged.connect(self.set_auto_fill_frac_thresh)
+        self.auto_fill_thresh.editingFinished.connect(self.set_auto_fill_frac_thresh)
         self.auto_fill_btn = QPushButton("Toggle Auto-Fill")
         self.auto_fill_btn.setCheckable(True)
         init_state = self.interface.auto_fill
