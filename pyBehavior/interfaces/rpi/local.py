@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLin
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
-from ratBerryPi.resources.pump import Syringe
+from ratBerryPi.resources.pump import Syringe, Pump
 from ratBerryPi.interfaces import RewardInterface
 import typing
 
@@ -50,13 +50,46 @@ class PumpConfig(QFrame):
         self.syringe_select.addItems(list(Syringe.syringeTypeDict.keys()))
         cur_syringe = self.interface.pumps[self.pump].syringe.syringeType
         self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
-        self.syringe_select.currentIndexChanged.connect(self.change_syringe)
+        self.syringe_select.currentIndexChanged.connect(lambda x: self.change_syringe(None))
         syringe_layout.addWidget(syringe_label)
         syringe_layout.addWidget(self.syringe_select)
         vlayout.addLayout(syringe_layout)
 
-        # TODO: need function on server side to change step type and step delay so i can control them step type from here
-        # need a button to fill the lines
+        # widget to change step type
+        step_type_layout = QHBoxLayout()
+        step_type_label = QLabel("Microstep Type: ")
+        self.step_type_select = QComboBox()
+        self.step_type_select.addItems(list(Pump.step_types))
+        cur_microstep = self.interface.pumps[self.pump].stepType
+        self.step_type_select.setCurrentIndex(self.step_type_select.findText(cur_microstep))
+        self.step_type_select.currentIndexChanged.connect(lambda x: self.set_microstep_type(None))
+        step_type_layout.addWidget(step_type_label)
+        step_type_layout.addWidget(self.step_type_select)
+        vlayout.addLayout(step_type_layout)
+
+        #widget to set step speed
+        step_speed_layout = QHBoxLayout()
+        step_speed_label = QLabel("Microstep Rate (steps/s): ")
+        self.step_speed = QLineEdit()
+        self.step_speed.setValidator(QDoubleValidator())
+        cur_speed =self.interface.pumps[self.pump].speed
+        self.step_speed.setText(f"{cur_speed}")
+        self.step_speed.editingFinished.connect(lambda x: self.set_step_speed(None))
+        step_speed_layout.addWidget(step_speed_label)
+        step_speed_layout.addWidget(self.step_speed)
+        vlayout.addLayout(step_speed_layout)
+
+        #widget to set flow rate
+        flow_rate_layout = QHBoxLayout()
+        flow_rate_label = QLabel("Flow Rate (mL/s): ")
+        self.flow_rate = QLineEdit()
+        self.flow_rate.setValidator(QDoubleValidator())
+        cur_flow_rate =self.interface.pumps[self.pump].flow_rate
+        self.flow_rate.setText(f"{cur_flow_rate}")
+        self.flow_rate.editingFinished.connect(lambda x: self.set_flow_rate(None))
+        flow_rate_layout.addWidget(flow_rate_label)
+        flow_rate_layout.addWidget(self.flow_rate)
+        vlayout.addLayout(flow_rate_layout)
         
         # widget to control auto-fill
         auto_fill_layout = QHBoxLayout()
@@ -70,11 +103,15 @@ class PumpConfig(QFrame):
         init_state = self.interface.auto_fill
         self.auto_fill_btn.setChecked(init_state)
         self.auto_fill_btn.clicked.connect(self.toggle_auto_fill)
+        auto_fill_layout.addWidget(auto_fill_thresh_label)
+        auto_fill_layout.addWidget(self.auto_fill_thresh)
+        auto_fill_layout.addWidget(self.auto_fill_btn)
+        vlayout.addLayout(auto_fill_layout)
         vlayout.addWidget(self.auto_fill_btn)
 
         # button to fill the lines
         self.fill_btn = QPushButton("Fill Lines")
-        self.fill_btn.clicked.connect(self.fill_lines)
+        self.fill_btn.clicked.connect(lambda x: self.fill_lines())
         vlayout.addWidget(self.fill_btn)
 
         # button to fill all the lines
@@ -188,6 +225,51 @@ class PumpConfig(QFrame):
         self.interface.set_auto_fill_frac_thresh(value)
         self.auto_fill_thresh.setText(f"{value}")
 
+    def set_microstep_type(self, step_type:str = None) -> None:
+        """
+        set microstepping level of the pump
+        
+        Args:
+            step_type: str
+                type of microstepping to set the motor to. 
+                must be a value listed in ratBerryPi.resources.pump.Pump.step_types:
+                ['Full', 'Half', '1/4', '1/8', '1/16', '1/32']
+
+        """
+        step_type = step_type if step_type is not None else self.step_type_select.currentText()
+        idx = self.step_type_select.findText(step_type)
+        if idx == -1:
+            raise ValueError('Invalid syringe type specified')
+        self.interface.set_microstep_type(pump=self.pump, 
+                                          stepType=step_type)
+        self.step_type_select.setCurrentIndex(idx)
+        flow_rate = self.interface.pumps[self.pump].flow_rate
+        self.flow_rate.setText(f"{flow_rate}")
+
+    def set_step_speed(self, speed:float=None) -> None:
+        """
+        set the flow rate of the pump
+        """
+        speed = speed if speed is not None else float(self.step_speed.text())
+        self.interface.set_step_speed(pump=self.pump,
+                                      speed=speed)
+        self.step_speed.setText(f"{speed}")
+        flow_rate = self.interface.pumps[self.pump].flow_rate
+        self.flow_rate.setText(f"{flow_rate}")
+
+
+    def set_flow_rate(self, flow_rate:float=None) -> None:
+        """
+        set the flow rate of the pump
+        """
+        flow_rate = flow_rate if flow_rate is not None else float(self.flow_rate.text())     
+        self.interface.set_flow_rate(pump=self.pump,
+                                     flow_rate=flow_rate)
+        flow_rate = self.interface.pumps[self.pump].flow_rate
+        self.flow_rate.setText(f"{flow_rate}")
+        speed = self.interface.pumps[self.pump].speed
+        self.step_speed.setText(f"{speed}")
+
     def change_syringe(self, syringe_type:str = None) -> None:
         """
         change the syringe type
@@ -198,10 +280,14 @@ class PumpConfig(QFrame):
                 default behavior is to use the currently selected syringe type
         """
         syringe_type = syringe_type if syringe_type is not None else self.syringe_select.currentText()
+        idx = self.syringe_select.findText(syringe_type)
+        if idx == -1:
+            raise ValueError('Invalid syringe type specified')
         self.interface.change_syringe(pump = self.pump, 
                                       syringeType = syringe_type)
-        idx = self.syringe_select.findText(syringe_type)
         self.syringe_select.setCurrentIndex(idx)
+        flow_rate = self.interface.pumps[self.pump].flow_rate
+        self.flow_rate.setText(f"{flow_rate}")
         
     def push_to_res(self, amount:float = None) -> None:
         """

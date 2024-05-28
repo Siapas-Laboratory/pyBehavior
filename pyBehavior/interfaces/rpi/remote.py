@@ -71,6 +71,7 @@ class PumpConfig(QFrame):
         step_speed_layout = QHBoxLayout()
         step_speed_label = QLabel("Microstep Rate (steps/s): ")
         self.step_speed = QLineEdit()
+        self.step_speed.setValidator(QDoubleValidator())
         cur_speed =self.client.get(f"pumps['{self.pump}'].speed")
         self.step_speed.setText(f"{cur_speed}")
         self.step_speed.editingFinished.connect(lambda x: self.set_step_speed(None))
@@ -82,6 +83,7 @@ class PumpConfig(QFrame):
         flow_rate_layout = QHBoxLayout()
         flow_rate_label = QLabel("Flow Rate (mL/s): ")
         self.flow_rate = QLineEdit()
+        self.flow_rate.setValidator(QDoubleValidator())
         cur_flow_rate =self.client.get(f"pumps['{self.pump}'].flow_rate")
         self.flow_rate.setText(f"{cur_flow_rate}")
         self.flow_rate.editingFinished.connect(lambda x: self.set_flow_rate(None))
@@ -272,6 +274,7 @@ class PumpConfig(QFrame):
             'flow_rate': flow_rate
         }
         self.client.run_command('set_flow_rate', args, channel = 'run')
+        flow_rate = float(self.client.get(f"pumps['{self.pump}'].flow_rate", channel = self.pump))
         self.flow_rate.setText(f"{flow_rate}")
         speed = float(self.client.get(f"pumps['{self.pump}'].speed", channel = self.pump))
         self.step_speed.setText(f"{speed}")
