@@ -474,7 +474,7 @@ class RPIRewardControl(RewardWidget):
 
         # button to manually play tone
         tone_btn = QPushButton("Play Tone")
-        tone_btn.clicked.connect(self.play_tone)
+        tone_btn.clicked.connect(lambda x: self.play_tone())
         vlayout.addWidget(tone_btn)
         
         # button to toggle the led
@@ -551,7 +551,6 @@ class RPIRewardControl(RewardWidget):
             dur: float (optional)
                 duration of the tone in seconds            
         """
-
         freq = freq if freq is not None else float(self.tone_freq.text())
         volume = volume if volume is not None else float(self.tone_vol.text())
         dur = dur if dur is not None else float(self.tone_dur.text())
@@ -560,9 +559,7 @@ class RPIRewardControl(RewardWidget):
                 'freq': freq,
                 'dur': dur,
                 'volume': volume}
-        
         status = self.client.run_command('play_tone', args, channel = 'run')
-
         if not status=='SUCCESS\n':
             print('error status', status)
 
