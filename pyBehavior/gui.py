@@ -412,25 +412,6 @@ class SetupGUI(QMainWindow):
                 self._di_daemon_thread.quit()
         event.accept()
 
-
-class RewardWidgetMeta(type(QFrame), ABCMeta):
-    pass
-
-class RewardWidget(QFrame, metaclass = RewardWidgetMeta):
-    """
-    abstract class to be inherited when creating widgets for reward control
-    defines an abstract method trigger_reward which must be defined in the subclass
-    """
-    @abstractmethod
-    def trigger_reward(amount):
-        ...
-
-class ModuleDict(UserDict):
-    def __setitem__(self, key, value):
-        if issubclass(type(value), RewardWidget):
-            super().__setitem__(key, value)
-        else:
-            raise ValueError("entries in ModuleDict must be instances of subclasses of gui.RewardWidget")
     
 class LoggableLineEdit(QLineEdit):
 
