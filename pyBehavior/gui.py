@@ -16,6 +16,34 @@ import paramiko
 from scp import SCPClient
 import typing
 
+
+class RewardWidgetMeta(type(QFrame), ABCMeta):
+    pass
+
+class RewardWidget(QFrame, metaclass = RewardWidgetMeta):
+    """
+    abstract class to be inherited when creating widgets for reward control
+    defines an abstract method trigger_reward which must be defined in the subclass
+    """
+    @abstractmethod
+    def trigger_reward(amount):
+        ...
+
+class ModuleDict(UserDict):
+    """
+    custom dictionary with checking to enforce
+    all values are instances of a subclass of RewardWidget
+    by extension this enforces that all values in this dictionary have
+    trigger_reward methods enabling the use of trigger_reward
+    method in SetupGUI below
+    """
+    def __setitem__(self, key, value):
+        if issubclass(type(value), RewardWidget):
+            super().__setitem__(key, value)
+        else:
+            raise ValueError("entries in ModuleDict must be instances of subclasses of gui.RewardWidget")
+    
+
 class SetupGUI(QMainWindow):
     """
     base class for all setup visualizers
@@ -23,10 +51,31 @@ class SetupGUI(QMainWindow):
     as well as a start and stop button. upon selecting a protocol an instance of
     the corresponding statemachine will be created. pressing the start button opens
     a filedialog to select a folder to save any timestamps to. all timestamping 
-    is handled through the log function which writes the timestamp to a buffer which is
-    periodically saved to a csv file in the save directory if the protocol is running
+    is handled through the log function. 
 
+    Attributes:
+        loc (Path):
+            path to the directory with gui and protocol code for this setup
+        mapping (pd.Series):
+            pandas series mapping names to nidaqmx ports. keys are human
+            readable names and values are the port addresses. this mapping
+            is read from a file called port_map.csv which should be in
+            the setup directory 
+        rpi_config (dict):
+            dictionary representing the contents of the rpi_config.yaml file
+            which should be stored in the setup directory. the file itself 
+            should contain the fields USER, HOST, and PORT which specify the 
+            username for logging into the pi, the hostname for the pi, and the 
+            port number that the ratBerryPi server is serving on
+        client (ratBerryPi.Client)
+            client for communicating with a remote ratBerryPi server
+        layout (PyQt5.QtWidgets.QVBoxLayout)
+            vertical box layout for constructing the GUI. any additional gui elements
+            should be added to this layout to be displayed
+        reward_modules (ModuleDict)
+            dictionary mapping names to instances of RewardWidgets
     """
+
     def __init__(self, loc):
         super(SetupGUI, self).__init__()
         self.loc = Path(loc)
@@ -45,9 +94,9 @@ class SetupGUI(QMainWindow):
             self.client = Client(self.rpi_config['HOST'], 
                                  self.rpi_config['PORT'])
             self.client.new_channel("run")
-            self.has_rpi = True
+            self._has_rpi = True
         else:
-            self.has_rpi = False
+            self._has_rpi = False
 
         container = QWidget()
         self.layout = QVBoxLayout()
@@ -63,7 +112,7 @@ class SetupGUI(QMainWindow):
         self._start_btn = QPushButton("start")
         self._start_btn.setCheckable(True)
         self._start_btn.setEnabled(False)
-        self.running = False
+        self._running = False
         self._start_btn.clicked.connect(self._start_protocol)
 
         # stop button for stopping a protocol
@@ -81,14 +130,14 @@ class SetupGUI(QMainWindow):
 
         # initialize the state machine as none
         # until a protocol is selected
-        self.state_machine = None
+        self._state_machine = None
 
         # placeholder attributes for
         # the collection of reward modules
         self.reward_modules = ModuleDict()
 
-        self.logger = logging.getLogger()
-        self.logger.setLevel(logging.DEBUG)
+        self._logger = logging.getLogger()
+        self._logger.setLevel(logging.DEBUG)
 
         # placeholder for file handler
         self._log_fh = None
@@ -101,11 +150,76 @@ class SetupGUI(QMainWindow):
                                            "%Y-%m-%d %H:%M:%S")
         ch.setFormatter(self._formatter)
         # add the handlers to the logger
-        self.logger.addHandler(ch)
+        self._logger.addHandler(ch)
 
-        self.eventstring_handlers = {}
+        self._eventstring_handlers = {}
 
-    def _start_protocol(self):
+        self._di_daemon = None
+        self._di_daemon_thread = None
+
+    @property
+    def ni_di(self) -> pd.DataFrame:
+        """
+        dataframe storing references to pyqt signals
+        emited on a given edge of a digital signal. 
+        each row correponds to a digital line on an NI card
+        and is addressed by the name assigned when calling 
+        self.init_NIDIDaemon. the rising_edge column contains 
+        signals emitted on the rising edge of the line.
+        similarly the falling edge column contains signals emited on
+        the falling edge of the line
+        """
+        return self._di_daemon.channels
+    
+    def init_NIDIDaemon(self, channels: typing.Dict[str, str], fs = 1000, start = False):
+        """
+        initialize a daemon that will poll a set of digital input lines
+        through nidaqmx continuously in the background and emit signals
+        on the rising and falling edges of each line
+
+        Args:
+            channels:
+                dictionary or pandas series mapping names to 
+                addresses for digital input lines to monitor.
+                keys should be names and values should be addresses
+            fs:
+                rate at which to poll the digital input lines in Hz.
+            start:
+                flag indicating whether or not to automatically
+                start the daemon
+        """
+
+        from pyBehavior.interfaces.ni import NIDIDaemon
+        self._di_daemon = NIDIDaemon(fs)
+        for i, v in channels.items():
+            self._di_daemon.register(v, i)
+        self._di_daemon_thread = QThread()
+        self._di_daemon.moveToThread(self._di_daemon_thread)
+        self._di_daemon_thread.started.connect(self._di_daemon.run)
+        self._di_daemon.finished.connect(self._di_daemon_thread.quit)
+        if start: self._di_daemon_thread.start()
+
+    def start_NIDIDaemon(self):
+        """
+        start the thread running the NI DI Daemon
+        """
+        assert self._di_daemon_thread is not None, "must initialize the daemon first"
+        self._di_daemon_thread.start()
+
+    @property
+    def prot_name(self) -> str:
+        """
+        name of the currently selected protocol
+        """
+        return self._prot_select.currentText()
+    
+    
+    def _start_protocol(self) -> None:
+        """
+        initialize the state machine for the currently selected
+        protocol and create a new log file
+        """
+
         # dialog to select a save directory
         dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
         dir_name = os.path.join(dir_name, 
@@ -117,7 +231,7 @@ class SetupGUI(QMainWindow):
         self._log_fh = logging.FileHandler(self._filename)
         self._log_fh.setLevel(logging.DEBUG)
         self._log_fh.setFormatter(self._formatter)
-        self.logger.addHandler(self._log_fh)
+        self._logger.addHandler(self._log_fh)
 
         # create the state machine
         prot = ".".join([self.loc.name, "protocols", self.prot_name])
@@ -125,8 +239,8 @@ class SetupGUI(QMainWindow):
         state_machine = getattr(setup_mod, self.prot_name)
         if not issubclass(state_machine, Protocol):
             raise ValueError("protocols must be subclasses of utils.protocols.Protocol")
-        self.state_machine = state_machine(self)
-        if self.has_rpi: self.client.run_command('record', channel = 'run')
+        self._state_machine = state_machine(self)
+        if self._has_rpi: self.client.run_command('record', channel = 'run')
 
         # update gui element accessibility
         self._start_btn.setEnabled(False)
@@ -134,12 +248,16 @@ class SetupGUI(QMainWindow):
         self._prot_select.setEnabled(False)
         self.log("starting protocol")
         # raise flag saying that we're running
-        self.running = True
+        self._running = True
 
     def _stop_protocol(self):
+        """
+        stop logging to the current log file and copy 
+        any data from a remote ratBerryPi to the log directory
+        """
         self.log("stopping protocol")
-        self.running = False
-        if self.has_rpi: 
+        self._running = False
+        if self._has_rpi: 
             rpi_data_path = self.client.get('data_path')
             ssh_client = paramiko.SSHClient()
             ssh_client.load_system_host_keys()
@@ -147,10 +265,10 @@ class SetupGUI(QMainWindow):
             ssh_client.connect(self.client.host, username = self.rpi_config['USER'], look_for_keys = True)
             scp_client = SCPClient(ssh_client.get_transport())
             scp_client.get(rpi_data_path, self._filename.parent.as_posix())
-            self.logger.info(f"rpi logs saved at: {self.client.get('data_path')}")
+            self._logger.info(f"rpi logs saved at: {self.client.get('data_path')}")
             self.client.run_command('stop_recording', channel = 'run')
         # remove file handler
-        self.logger.removeHandler(self._log_fh)
+        self._logger.removeHandler(self._log_fh)
         
         # update gui elements
         self._start_btn.setEnabled(True)
@@ -158,23 +276,25 @@ class SetupGUI(QMainWindow):
         self._prot_select.setEnabled(True)
         self._stop_btn.setEnabled(False)
 
-    def _change_protocol(self):
-        # import and create the statemachine
-        self.prot_name = self._prot_select.currentText()
+    def _change_protocol(self) -> None:
+        """
+        callback for switching between protocols
+        """
+
         if len(self.prot_name)>0:
             self._start_btn.setEnabled(True)
         else:
-            self.state_machine = None
+            self._state_machine = None
             self._start_btn.setEnabled(False)
     
     def _template_state_machine_input_handler(self, data, formatter:typing.Callable, before:typing.Callable, event_line:str):
         if before is not None:
             before(data)
-        if self.running:
-            curr_state = self.state_machine.current_state.id
-            self.state_machine.handle_input(formatter(data))
-            if self.state_machine.current_state.id != curr_state:
-                self.log(f"STATE MACHINE ENTERED STATE: {self.state_machine.current_state.id}", event_line)
+        if self._running:
+            curr_state = self._state_machine.current_state.id
+            self._state_machine.handle_input(formatter(data))
+            if self._state_machine.current_state.id != curr_state:
+                self.log(f"STATE MACHINE ENTERED STATE: {self._state_machine.current_state.id}", event_line)
 
     def trigger_reward(self, module:str, amount:float, event_line:str = None, **kwargs):
         """
@@ -205,13 +325,13 @@ class SetupGUI(QMainWindow):
         """
 
         if event_line:
-            self.eventstring_handlers[event_line].send(event)
+            self._eventstring_handlers[event_line].send(event)
         elif raise_event_line:
-            if len(self.eventstring_handlers)>0:
-                event_line = list(self.eventstring_handlers.keys())[0]
-                self.eventstring_handlers[event_line].send(event)
+            if len(self._eventstring_handlers)>0:
+                event_line = list(self._eventstring_handlers.keys())[0]
+                self._eventstring_handlers[event_line].send(event)
         else:
-            self.logger.info(event)
+            self._logger.info(event)
 
     def init_NIDIDaemon(self, channels:dict, fs:float = 1000, start:bool = False):
         """
@@ -233,16 +353,15 @@ class SetupGUI(QMainWindow):
         """
         
         from pyBehavior.interfaces.ni import NIDIDaemon
-        self.di_daemon = NIDIDaemon(fs)
+        self._di_daemon = NIDIDaemon(fs)
         for i, v in channels.items():
-            self.di_daemon.register(v, i)
-        self.di_daemon_thread = QThread()
-        self.di_daemon.moveToThread(self.di_daemon_thread)
-        self.di_daemon_thread.started.connect(self.di_daemon.run)
-        self.di_daemon.finished.connect(self.di_daemon_thread.quit)
+            self._di_daemon.register(v, i)
+        self._di_daemon_thread = QThread()
+        self._di_daemon.moveToThread(self._di_daemon_thread)
+        self._di_daemon_thread.started.connect(self._di_daemon.run)
+        self._di_daemon.finished.connect(self._di_daemon_thread.quit)
         if start:
-            self.di_daemon_thread.start()
-        return self.di_daemon, self.di_daemon_thread
+            self._di_daemon_thread.start()
     
     def register_state_machine_input(self, signal:pyqtSignal, input_type:str, metadata = None, 
                                      before:typing.Callable = None, event_line:str = None):
@@ -282,15 +401,15 @@ class SetupGUI(QMainWindow):
         """
 
         from pyBehavior.interfaces.ni import EventstringSender
-        self.eventstring_handlers[event_line_name] = EventstringSender(self, event_line_name, event_line_port)
-        return self.eventstring_handlers[event_line_name] 
+        self._eventstring_handlers[event_line_name] = EventstringSender(self, event_line_name, event_line_port)
+        return self._eventstring_handlers[event_line_name] 
 
     def closeEvent(self, event):
-        if self.running: self._stop_protocol()
+        if self._running: self._stop_protocol()
         if hasattr(self, 'di_daemon'):
-            if self.di_daemon.running:
-                self.di_daemon.stop()
-                self.di_daemon_thread.quit()
+            if self._di_daemon.running:
+                self._di_daemon.stop()
+                self._di_daemon_thread.quit()
         event.accept()
 
 
