@@ -30,19 +30,23 @@ class NewSetupDialog(QDialog):
         message = QLabel("Please enter a name for the new setup. Avoid spaces and all symbols except for _")
         self.use_ni_cards = QCheckBox("Check here if this setup will use National Instruments Cards")
         self.use_rpi = QCheckBox("Check here if this setup will connect remotely to a ratBerryPi")
+
+
         rpi_dialog_layout = QVBoxLayout()
+        self.is_rpi_remote = QCheckBox("Check here if you will be connecting remotely to the ratBerryPi")
+        self.is_rpi_remote.setChecked(True)
+        self.is_rpi_remote.stateChanged.connect(self.toggle_rpi_remote)
+        rpi_dialog_layout.addWidget(self.is_rpi_remote)
 
         host_layout = QHBoxLayout()
-        host_label = QLabel('HOST')
+        host_layout.addWidget(QLabel('HOST'))
         self.rpi_host = QLineEdit()
-        host_layout.addWidget(host_label)
         host_layout.addWidget(self.rpi_host)
         rpi_dialog_layout.addLayout(host_layout)
 
         port_layout = QHBoxLayout()
-        port_label = QLabel('PORT')
+        port_layout.addWidget(QLabel('PORT'))
         self.rpi_port = QLineEdit()
-        port_layout.addWidget(port_label)
         port_layout.addWidget(self.rpi_port)
         rpi_dialog_layout.addLayout(port_layout)
 
@@ -69,8 +73,17 @@ class NewSetupDialog(QDialog):
         self.orig_size = self.minimumSizeHint()
         self.height =self.orig_size.height()
         self.width =self.orig_size.width()
-
-
+    
+    def toggle_rpi_remote(self):
+        if self.is_rpi_remote.isChecked():
+            self.rpi_host.setEnabled(True)
+            self.rpi_port.setEnabled(True)
+            self.rpi_user.setEnabled(True)
+        else:
+            self.rpi_host.setEnabled(False)
+            self.rpi_port.setEnabled(False)
+            self.rpi_user.setEnabled(False)
+        
     def show_rpi_dialog(self):
         if self.use_rpi.isChecked():
             self.rpi_dialog.show()
@@ -106,9 +119,7 @@ class Settings(QMainWindow):
         self.map_file_select = QComboBox()
         self.map_file_select.addItems(available_mappings)
         if len(available_mappings)>0:
-            self.map_file = os.path.join(setup_dir,self.map_file_select.currentText(),'port_map.csv')
-            self.mapping = pd.read_csv(self.map_file)
-            self.mapping = self.mapping.set_index('port')['name'].fillna("")
+            self.load_map()
         else:
             self.map_file = None
             self.mapping = pd.DataFrame()
@@ -128,6 +139,11 @@ class Settings(QMainWindow):
         self.layout.addLayout(self.header_layout)
 
         # fill the body of the window with port labels and inputs for names to assign
+        self.port_labels = []
+        self.name_inputs = []
+        self.di_select = []
+        self.del_btns = []
+
         self.body_layout = QGridLayout()
         self.fill_body()
         self.body_widget = QWidget()       
@@ -153,59 +169,35 @@ class Settings(QMainWindow):
         container.setLayout(self.layout)
         self.setCentralWidget(container)
 
+    @property
+    def map_file(self):
+        return os.path.join(self.setup_dir, self.map_file_select.currentText(),'port_map.csv')
+    
+    def load_map(self):
+        """
+        load currently selected map file
+        """
+        self.mapping = pd.read_csv(self.map_file).set_index('port')
+        self.mapping['name'] = self.mapping['name'].fillna("")
+        if 'DI' not in self.mapping.columns:
+            self.mapping['DI'] = [False] * len(self.mapping)
+
     def add_map(self):
         port, ok = QInputDialog().getText(self, "New Mapping", "Enter name of the new port to map:")
         if ok:
+            self.mapping.loc[port, 'name'] = ""
+            self.mapping.loc[port, 'DI'] = False
+            self.add_row(port, "", False)
 
-            self.mapping.loc[port] = ""
-
-            port_label = QLabel()
-            port_label.setText(port)
-            self.port_labels.append(port_label)
-
-            name_input = QLineEdit()
-            name_input.setText(self.mapping.loc[port])
-            name_input.editingFinished.connect(self.update_var_name)
-            self.name_inputs.append(name_input)
-
-            del_btn = QPushButton("del")
-            del_btn.clicked.connect(self.del_map)
-            self.del_btns.append(del_btn)
-
-            cur_len = self.body_layout.rowCount()
-            self.body_layout.addWidget(port_label, cur_len, 0)
-            self.body_layout.addWidget(name_input, cur_len, 1)
-            self.body_layout.addWidget(del_btn, cur_len, 2)
-
-            self.mapping.loc[port] = ""
 
     def fill_body(self):
         """
         fill the body of the window with label 
         and line edit widgets for all mappings
         """
-        self.port_labels = []
-        self.name_inputs = []
-        self.del_btns = []
-        for i,(port, name) in enumerate(self.mapping.items()):
 
-            port_label = QLabel()
-            port_label.setText(port)
-            self.port_labels.append(port_label)
-
-            name_input = QLineEdit()
-            name_input.setText(name)
-            name_input.editingFinished.connect(self.update_var_name)
-            self.name_inputs.append(name_input)
-
-
-            del_btn = QPushButton("del")
-            del_btn.clicked.connect(self.del_map)
-            self.del_btns.append(del_btn)
-
-            self.body_layout.addWidget(port_label, i, 0)
-            self.body_layout.addWidget(name_input, i, 1)
-            self.body_layout.addWidget(del_btn, i, 2)
+        for port, data in self.mapping.T.items():
+            self.add_row(port, data['name'], data['DI'])
 
     def scan_ports(self):
         from pyBehavior.interfaces.ni import daqmx_supported
@@ -224,35 +216,48 @@ class Settings(QMainWindow):
     def get_all_ports(self):
         channels = self.scan_ports()
         channels = list(filter(lambda x: x not in self.mapping.index.tolist(), channels))
+        for port in channels:
+            self.mapping.loc[port, 'name'] = ""
+            self.mapping.loc[port, 'DI'] = False
+            self.add_row(port, "", False)
+
+    def add_row(self, port:str, name:str, di:bool):
+        
+        assert len(self.port_labels) == len(self.name_inputs) == len(self.di_select)
         cur_len = self.body_layout.rowCount()
-        for i, port in enumerate(channels, cur_len):
 
-            self.mapping.loc[port] = ""
+        port_label = QLabel(port)
+        self.port_labels.append(port_label)
 
-            port_label = QLabel()
-            port_label.setText(port)
-            self.port_labels.append(port_label)
+        name_input = QLineEdit()
+        name_input.setText(name)
+        name_input.editingFinished.connect(self.update_var_name)
+        self.name_inputs.append(name_input)
 
-            name_input = QLineEdit()
-            name_input.setText(self.mapping.loc[port])
-            name_input.editingFinished.connect(self.update_var_name)
-            self.name_inputs.append(name_input)
+        di_select = QCheckBox()
+        di_select.setChecked(di)
+        di_select.stateChanged.connect(self.update_di)
+        self.di_select.append(di_select)
 
+        del_btn = QPushButton("del")
+        del_btn.clicked.connect(self.del_map)
+        self.del_btns.append(del_btn)
 
-            del_btn = QPushButton("del")
-            del_btn.clicked.connect(self.del_map)
-            self.del_btns.append(del_btn)
+        self.body_layout.addWidget(port_label, cur_len, 0)
+        self.body_layout.addWidget(name_input, cur_len, 1)
+        self.body_layout.addWidget(di_select, cur_len, 2)
+        self.body_layout.addWidget(del_btn, cur_len, 3)
 
-            self.body_layout.addWidget(port_label, i, 0)
-            self.body_layout.addWidget(name_input, i, 1)
-            self.body_layout.addWidget(del_btn, i, 2)
+    def update_di(self):
+        line = self.di_select.index(self.sender())
+        self.mapping.iloc[line, self.mapping.columns.get_loc('DI')] = self.di_select[line].isChecked()
 
     def update_var_name(self):
         line = self.name_inputs.index(self.sender())
-        self.mapping.iloc[line] = self.name_inputs[line].text()
+        self.mapping.iloc[line, self.mapping.columns.get_loc('name')] = self.name_inputs[line].text()
 
     def save(self):
-        self.mapping.to_frame().to_csv(self.map_file)
+        self.mapping.to_csv(self.map_file)
     
     def create(self):
         dialog = NewSetupDialog()
@@ -271,16 +276,23 @@ class {dialog.fname}(SetupGUI):
             if dialog.use_ni_cards.isChecked():
                 new_map_file = os.path.join(setup_path, 'port_map.csv')
                 channels = self.scan_ports()
-                new_mapping = pd.Series([""]* len(channels), dtype = str, index = pd.Index(channels, name = "port")).rename("name")
-                new_mapping.to_frame().to_csv(new_map_file)
+                new_mapping = pd.DataFrame({"port":channels, 
+                                            "name": [""] * len(channels), 
+                                            "DI": [False] * len(channels)}).set_index("port")
+                new_mapping.to_csv(new_map_file)
                 starter_code = "from pyBehavior.interfaces.ni import *\n" + starter_code
 
             if dialog.use_rpi.isChecked():
-                with open(os.path.join(setup_path, 'rpi_config.yaml'), 'w') as f:
-                    f.write(f"HOST: {dialog.rpi_host.text()}\n")
-                    f.write(f"PORT: {dialog.rpi_port.text()}\n")
-                    f.write(f"USER: {dialog.rpi_user.text()}")
-                starter_code = "from pyBehavior.interfaces.rpi import *\n" + starter_code
+                if dialog.is_rpi_remote.isChecked():
+                    with open(os.path.join(setup_path, 'rpi_config.yaml'), 'w') as f:
+                        f.write(f"HOST: {dialog.rpi_host.text()}\n")
+                        f.write(f"PORT: {dialog.rpi_port.text()}\n")
+                        f.write(f"USER: {dialog.rpi_user.text()}")
+                    starter_code = "from pyBehavior.interfaces.rpi.remote import *\n" + starter_code
+                else:
+                    with open(os.path.join(setup_path, 'rpi_config.yaml'), 'w') as f:
+                        f.write(f"LOCAL: true")
+                    starter_code = "from pyBehavior.interfaces.rpi.local import *\n" + starter_code
 
             os.mkdir(os.path.join(setup_path, 'protocols'))
             with open(os.path.join(setup_path, 'gui.py'), 'w') as f:
@@ -296,20 +308,30 @@ class {dialog.fname}(SetupGUI):
         for i in range(len(self.port_labels)):
             self.port_labels[i].deleteLater()
             self.name_inputs[i].deleteLater()
+            self.di_select[i].deleteLater()
             self.del_btns[i].deleteLater()
 
-        self.map_file = os.path.join(self.setup_dir, str(self.map_file_select.currentText()), 'port_map.csv')
-        self.mapping = pd.read_csv(self.map_file).set_index('port')['name'].fillna("")
+        self.port_labels = []
+        self.name_inputs = []
+        self.di_select = []
+        self.del_btns = []
+
+        self.load_map()
         self.fill_body()        
 
     def del_map(self):
-
         line = self.del_btns.index(self.sender())
         port = self.port_labels[line].text()
+        # delete port label
         self.port_labels[line].deleteLater()
         del self.port_labels[line]
+        # delete name input
         self.name_inputs[line].deleteLater()
         del self.name_inputs[line]
+        # delete de select
+        self.di_select[line].deleteLater()
+        del self.di_select[line]
+        # delete del btn
         self.del_btns[line].deleteLater()
         del self.del_btns[line]
         self.mapping.drop(index = port, inplace=True)

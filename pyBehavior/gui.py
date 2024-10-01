@@ -7,7 +7,6 @@ from datetime import datetime
 import importlib
 import yaml
 import os
-from ratBerryPi.remote.client import Client
 from abc import ABCMeta, abstractmethod
 from collections import UserDict
 from pyBehavior.protocols import *
@@ -61,12 +60,23 @@ class SetupGUI(QMainWindow):
             readable names and values are the port addresses. this mapping
             is read from a file called port_map.csv which should be in
             the setup directory 
+        ni_di (pd.DataFrame):
+            dataframe storing references to pyqt signals emited on a given edge
+            of a digital signal. each row correponds to a digital line on an NI card
+            and is addressed by the name assigned when calling self.init_NIDIDaemon. 
+            the rising_edge column contains signals emitted on the rising edge of the line.
+            similarly the falling edge column contains signals emited on the falling
+            edge of the line
         rpi_config (dict):
             dictionary representing the contents of the rpi_config.yaml file
-            which should be stored in the setup directory. the file itself 
-            should contain the fields USER, HOST, and PORT which specify the 
-            username for logging into the pi, the hostname for the pi, and the 
-            port number that the ratBerryPi server is serving on
+            which should be stored in the setup directory. if connecteing to the
+            pi remotely the file itself should contain the fields USER, HOST, 
+            and PORT which specify the username for logging into the pi, the 
+            hostname for the pi, and the port number that the ratBerryPi server is 
+            serving on. if running locally this file must have the field LOCAL and
+            it should be set to true
+        interface (ratBerryPi.interface.RewardInterface)
+            interface for controlling a ratBerryPi locally
         client (ratBerryPi.Client)
             client for communicating with a remote ratBerryPi server
         layout (PyQt5.QtWidgets.QVBoxLayout)
@@ -82,21 +92,29 @@ class SetupGUI(QMainWindow):
 
         # if there is a ni port map for this setup load it
         if os.path.exists(self.loc/'port_map.csv'):
-            mapping = pd.read_csv(self.loc/'port_map.csv')
-            self.mapping = mapping.set_index('name')['port'].fillna("")
+            mapping = pd.read_csv(self.loc/'port_map.csv').set_index('name')
+            self.init_NIDIDaemon(self, mapping.loc[mapping.DI].port):
+            self.mapping = mapping.port
         else:
             self.mapping = None
 
         # if there is a config file for connecting to a raspberry pi load it
+        self._has_remote_rpi = False
+        self._has_local_rpi = False
         if os.path.exists(self.loc/'rpi_config.yaml'):
             with open(self.loc/'rpi_config.yaml', 'r') as f:
                 self.rpi_config = yaml.safe_load(f)
-            self.client = Client(self.rpi_config['HOST'], 
-                                 self.rpi_config['PORT'])
-            self.client.new_channel("run")
-            self._has_rpi = True
-        else:
-            self._has_rpi = False
+            if self.rpi_config.get('LOCAL', False):
+                from ratBerryPi.interface import RewardInterface
+                self.interface = RewardInterface()
+                self.interface.start()
+                self._has_local_rpi = True
+            else:
+                from ratBerryPi.remote.client import Client
+                self.client = Client(self.rpi_config['HOST'], 
+                                    self.rpi_config['PORT'])
+                self.client.new_channel("run")
+                self._has_remote_rpi = True
 
         container = QWidget()
         self.layout = QVBoxLayout()
@@ -240,7 +258,7 @@ class SetupGUI(QMainWindow):
         if not issubclass(state_machine, Protocol):
             raise ValueError("protocols must be subclasses of utils.protocols.Protocol")
         self._state_machine = state_machine(self)
-        if self._has_rpi: self.client.run_command('record', channel = 'run')
+        if self._has_remote_rpi: self.client.run_command('record', channel = 'run')
 
         # update gui element accessibility
         self._start_btn.setEnabled(False)
@@ -257,7 +275,7 @@ class SetupGUI(QMainWindow):
         """
         self.log("stopping protocol")
         self._running = False
-        if self._has_rpi: 
+        if self._has_remote_rpi: 
             rpi_data_path = self.client.get('data_path')
             ssh_client = paramiko.SSHClient()
             ssh_client.load_system_host_keys()
@@ -410,6 +428,8 @@ class SetupGUI(QMainWindow):
             if self._di_daemon.running:
                 self._di_daemon.stop()
                 self._di_daemon_thread.quit()
+        if self._has_local_rpi:
+            self.interface.stop()
         event.accept()
 
     
