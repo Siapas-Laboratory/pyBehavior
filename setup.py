@@ -8,5 +8,15 @@ setup(
     description = "A Python based system for controlling rodent behavior experiments", 
     packages = find_packages(),
     scripts = ['pyBehavior/main.py'],
-    package_data = {"": ["*.csv", "*.mat"]}
+    package_data = {"": ["*.csv", "*.mat"]},
+    install_requires = [
+        'numpy',
+        'pandas',
+        'PyQt5',
+        'pyyaml',
+        'python-statemachine',
+        'paramiko',
+        'scp'
+    ],
+    extras_require = {'ni': ['nidaqmx']}
 )
