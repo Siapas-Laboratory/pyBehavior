@@ -93,7 +93,7 @@ class SetupGUI(QMainWindow):
         # if there is a ni port map for this setup load it
         if os.path.exists(self.loc/'port_map.csv'):
             mapping = pd.read_csv(self.loc/'port_map.csv').set_index('name')
-            self.init_NIDIDaemon(self, mapping.loc[mapping.DI].port):
+            self.init_NIDIDaemon(mapping.loc[mapping.DI].port)
             self.mapping = mapping.port
         else:
             self.mapping = None
@@ -154,8 +154,8 @@ class SetupGUI(QMainWindow):
         # the collection of reward modules
         self.reward_modules = ModuleDict()
 
-        self._logger = logging.getLogger()
-        self._logger.setLevel(logging.DEBUG)
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
 
         # placeholder for file handler
         self._log_fh = None
@@ -168,12 +168,9 @@ class SetupGUI(QMainWindow):
                                            "%Y-%m-%d %H:%M:%S")
         ch.setFormatter(self._formatter)
         # add the handlers to the logger
-        self._logger.addHandler(ch)
+        self.logger.addHandler(ch)
 
         self._eventstring_handlers = {}
-
-        self._di_daemon = None
-        self._di_daemon_thread = None
 
     @property
     def ni_di(self) -> pd.DataFrame:
@@ -187,7 +184,10 @@ class SetupGUI(QMainWindow):
         similarly the falling edge column contains signals emited on
         the falling edge of the line
         """
-        return self._di_daemon.channels
+        if hasattr(self, '_di_daemon'):
+            return self._di_daemon.channels
+        else:
+            return None
     
     def init_NIDIDaemon(self, channels: typing.Dict[str, str], fs = 1000, start = False):
         """
@@ -249,7 +249,7 @@ class SetupGUI(QMainWindow):
         self._log_fh = logging.FileHandler(self._filename)
         self._log_fh.setLevel(logging.DEBUG)
         self._log_fh.setFormatter(self._formatter)
-        self._logger.addHandler(self._log_fh)
+        self.logger.addHandler(self._log_fh)
 
         # create the state machine
         prot = ".".join([self.loc.name, "protocols", self.prot_name])
@@ -283,10 +283,10 @@ class SetupGUI(QMainWindow):
             ssh_client.connect(self.client.host, username = self.rpi_config['USER'], look_for_keys = True)
             scp_client = SCPClient(ssh_client.get_transport())
             scp_client.get(rpi_data_path, self._filename.parent.as_posix())
-            self._logger.info(f"rpi logs saved at: {self.client.get('data_path')}")
+            self.logger.info(f"rpi logs saved at: {self.client.get('data_path')}")
             self.client.run_command('stop_recording', channel = 'run')
         # remove file handler
-        self._logger.removeHandler(self._log_fh)
+        self.logger.removeHandler(self._log_fh)
         
         # update gui elements
         self._start_btn.setEnabled(True)
@@ -349,7 +349,7 @@ class SetupGUI(QMainWindow):
                 event_line = list(self._eventstring_handlers.keys())[0]
                 self._eventstring_handlers[event_line].send(event)
         else:
-            self._logger.info(event)
+            self.logger.info(event)
 
     def init_NIDIDaemon(self, channels:dict, fs:float = 1000, start:bool = False):
         """
