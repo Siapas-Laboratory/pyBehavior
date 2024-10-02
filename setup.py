@@ -11,8 +11,6 @@ setup(
     package_data = {"": ["*.csv", "*.mat"]},
     install_requires = [
         'numpy',
-        'pandas',
-        'PyQt5',
         'pyyaml',
         'python-statemachine',
         'paramiko',
