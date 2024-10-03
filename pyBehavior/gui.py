@@ -314,6 +314,19 @@ class SetupGUI(QMainWindow):
             if self._state_machine.current_state.id != curr_state:
                 self.log(f"STATE MACHINE ENTERED STATE: {self._state_machine.current_state.id}", event_line)
 
+    def register_reward_module(self, name: str, mod: RewardWidget):
+        """
+        register a reward module such that it is accessible
+        by trigger_reward commands
+
+        Args:
+            name:
+                name to acces the module by
+            mod:
+                reward widget associated to the module
+        """
+        self.reward_modules.update({name: mod})
+
     def trigger_reward(self, module:str, amount:float, event_line:str = None, **kwargs):
         """
         trigger reward on a specified module
