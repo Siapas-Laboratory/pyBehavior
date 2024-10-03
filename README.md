@@ -1,5 +1,5 @@
 # pyBehavior
-pyBehavior is a python based framework for developing GUIs for controlling and automating animal behavioral aparatuses. This repository contains a set of GUI elements that users are meant to sub-class to build custom GUIs for their behavioral aparatus and protocols that can be run through them. Knowledge of PyQt5 is helpful but not strictly necessary for devloping the GUIs. The protocols are simply an abstraction of the StateMachine class in the python-statemachine library so we point users to their documentation for details on how to define a state machine that runs your protocol. 
+pyBehavior is a python based framework for developing GUIs for controlling and automating animal behavioral aparatuses. This repository contains a set of GUI elements that users are meant to sub-class to build custom GUIs for their behavioral aparatus and protocols that can be run through them. Knowledge of PyQt5 is helpful but not strictly necessary for devloping the GUIs. The protocols are simply an abstraction of the StateMachine class in the python-statemachine library so we point users to their [documentation]() for details on how to define a state machine that runs your protocol. 
 
 ## Getting Started
 ### Installation
@@ -37,7 +37,7 @@ python -m pyBehavior.main --setup_dir /path/to/root/setup/dir
 
 
 ## Creating your first Setup GUI
-After using the GUI to create the setup sub directory you should see that your setup root directory has the following structure. You should see that the directory now has the following structure:
+After using the GUI to create the setup sub directory you should see that your setup root directory has the following structure:
 
 
 ```
@@ -52,7 +52,7 @@ root_dir
     
 ```
 
-where `setup1` is the hypothetical name of the setup you just created through the gui. You will only see `port_map.csv` if you are interfacing with a national instruments card. This contains the names you assigned to the ports in the GUI as well as whether or not they should be treated as a digital input. `rpi_config.yaml` will only appear if you are using a ratBerryPi and contains relevant information for interfacing with the pi. The `protocols` sub-directory is empty at first but is where you should put files with code for behavioral protocols you would like to run on the setup (see [Creating a New Protocol](#creating-a-new-protocol)). `gui.py` is where you will build the gui for the setup. It should have some version of the following starter code already in it:
+where `setup1` is the hypothetical name of the setup you just created. You will only see `port_map.csv` if you are interfacing with a national instruments card. This contains the names you assigned to the ports in the GUI as well as whether or not they should be treated as a digital input. `rpi_config.yaml` will only appear if you are using a [ratBerryPi]() and contains relevant information for interfacing with the pi. The `protocols` sub-directory is empty at first but is where you should put files with code for behavioral protocols you would like to run on the setup (see [Creating a New Protocol](#creating-a-new-protocol)). `gui.py` is where you will build the gui for the setup. It should have some version of the following starter code already in it:
 
 ```
 from pyBehavior.gui import *
@@ -143,17 +143,17 @@ This stores the module in a dictionary located at `self.reward_modules` where th
 ### Registering state machine inputs
 The process of creating a protocol in pyBehavior involves defining a state machine (see [Creating a New Protocol](#creating-a-new-protocol)). The state machine itself defines a set of states, a set of actions and the corresponding set of state transitions that can occur given the current state and action. In order to link inputs that we may read from a GPIO pin on a raspberry pi or a digital line on a national instruments card to actions which can affect the state machine, pyBehavior uses pyqt signals. 
 
-Signals in pyqt are essentially notifications that a pyqt object can be configured to emit whenever something happens. For example, in the case of ratBerryPi reward modules, all lickometers have an attribute lick_notifier which is an instance of a custom pyqt object called a lick notifier. The lickometer is configured to emit a signal called new_lick whenever a new lick is detected. Signals in pyqt become useful when they are connected to a slot, or callback function. In the ratBerryPi reward widget, for example, the new_lick signal of the lickometer of the associated reward module is connected to a callback function which essentially emits another signal called new_lick from the reward widget which users have access to. 
+Signals in pyqt are essentially notifications that a pyqt object can be configured to emit whenever something happens. For example, in the case of ratBerryPi reward modules, all lickometers have an attribute lick_notifier which is an instance of a custom pyqt object called a lick notifier. The lickometer is configured to emit a signal called `new_lick` whenever a new lick is detected. Signals in pyqt become useful when they are connected to a slot, or callback function. In the ratBerryPi reward widget, for example, the `new_lick` signal of the lickometer of the associated reward module is connected to a callback function which essentially emits another signal called `new_lick` from the reward widget which users have access to. 
 
-In our case, pyqt signals are used to trigger actions on the state machine through the `register_state_machine_input` method of the setup gui class. This method takes a provided pyqt signal and connects it to a callback function that formats the data contained in the signal and passes it on to the handle_input method of the Protocol class (see [Creating a New Protocol](#creating-a-new-protocol) for details on handle_input). The result is that whenever the specified signal is emitted the protocol's handle_input method is called and the appropriate action can be taken on the state machine.
+In our case, pyqt signals are used to trigger actions on the state machine through the `register_state_machine_input` method of the setup gui class. This method takes a provided pyqt signal and connects it to a callback function that formats the data contained in the signal and passes it on to the `handle_input` method of the Protocol class (see [Creating a New Protocol](#creating-a-new-protocol) for details on `handle_input`). The result is that whenever the specified signal is emitted the protocol's `handle_input` method is called and the appropriate action can be taken on the state machine.
 
-In the case of the new_lick signal of the ratBerryPi reward widget, we can register this as an input to the state machine as follows:
+In the case of the `new_lick` signal of the ratBerryPi reward widget, we can register this as an input to the state machine as follows:
 
 ```
 self.register_state_machine_input(self.reward_modules['module1'].new_lick, 'module1 lick')
 ```
 
-where the second argument is an identifier for the input to the state machine. The effect is that in our handle_input method of the protocol class we can identify this input as follows:
+where the second argument is an identifier for the input to the state machine. The effect is that in our `handle_input` method of the protocol class we can identify this input as follows:
 
 ```
 def handle_input(self, data):
@@ -161,10 +161,26 @@ def handle_input(self, data):
         # do something
 ```
 
-See the documentation for the register_state_machine_input method for additional options for configuring inputs.
+For completeness, we note that the equivalent signal for the remote ratBerryPi interface can be accessed through the `new_licks` attribute of the reward widget. Thus, if module1 were a remote ratBerryPi reward module, registering `new_licks` would instead look like this:
+
+
+```
+self.register_state_machine_input(self.reward_modules['module1'].new_licks, 'module1 lick')
+```
+
+This signal carries with it data indicating the number of new detected licks since this signal. This data can be accessed in `handle_input` as follows:
+
+```
+def handle_input(self, data):
+    if data['type']=='module1 lick':
+        n_licks = data['data']
+        # do something
+```
+
+the `register_state_machine_input` method also allows users to specify metadata to pass on to `handle_input` and a function to call on the signal data before running `handle_input`. Metadata can be accessed from `handle_input` at the `'metadata'` field of the input data. For more details, we point interested users to the docstrings of `register_state_machine_input`.
 
 ### Considerations for National Instruments Digital Inputs
-
+If any ports on a national instruments card have been specified as digital inputs, the setup GUI will automatically start a daemon that polls these ports at a 1kHz sampling rate. The daemon holds reference to a set of signals that are emitted on the rising or falling edge of a digital input. These signals can be accessed through the ni_di property of the setup GUI class which will return a dataframe with indices corresponding to user specified port names and columns rising_edge and falling_edge. As implied, rising_edge stores the signals emitted on the rising edge of the associate digital input and falling_edge the signals for the falling edge. As such, both the rising and falling edge of all digital lines can be registered as state machine inputs or connected to arbitrary callback functions as needed using the ni_di property.
 
 ### Eventstring Handlers
 
@@ -172,4 +188,4 @@ See the documentation for the register_state_machine_input method for additional
 
 
 ## Creating a New Protocol
-Each protocol should be defined in it's own python file in the protocols sub-director of the associated setup.
+Each protocol should be defined in it's own python file in the protocols sub-director of the associated setup. ...
