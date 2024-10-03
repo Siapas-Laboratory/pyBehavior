@@ -129,7 +129,7 @@ class NIRewardControl(RewardWidget):
         vlayout.addLayout(flow_layout)
 
         pulse_layout = QHBoxLayout()
-        amt_label = QLabel("Reward Amount (mL)")
+        amt_label = QLabel("Pulse Amount (mL)")
         self.amt = QLineEdit()
         self.amt.setValidator(QDoubleValidator())
         self.amt.setText("0.2")

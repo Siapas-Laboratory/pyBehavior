@@ -1,13 +1,13 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QComboBox, QFrame
+from PyQt5.QtWidgets import QGroupBox, QSizePolicy, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QComboBox, QFrame, QTabWidget
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
 import typing
 
 
-class PumpConfig(QFrame):
+class PumpConfig(QGroupBox):
     """
     a widget for controlling a pump on the ratBerryPi remotely
     through a client
@@ -33,15 +33,27 @@ class PumpConfig(QFrame):
         vlayout = QVBoxLayout()
 
         # pump name
-        pump_label = QLabel(self.pump)
-        vlayout.addWidget(pump_label)
+        self.setTitle(self.pump)
 
         # label to keep track of the pump piston position
-        self.pos_label = QLabel("Position: ")
-        vlayout.addWidget(self.pos_label)
+        playout = QHBoxLayout()
+        playout.addWidget(QLabel("Position [cm]: "))
+        self.pos_label = QLineEdit()
+        self.pos_label.setEnabled(False)
+        playout.addWidget(self.pos_label)
+        vlayout.addLayout(playout)
         self.pos_thread = PumpConfig.RPIPumpPosThread(self.client, self.pump)
         self.pos_thread.pos_updated.connect(self._update_pos)
         self.pos_thread.start()
+
+        # button to calibrate the pump
+        self.calibrate_btn = QPushButton("Calibrate")
+        self.calibrate_btn.clicked.connect(self.calibrate)
+        vlayout.addWidget(self.calibrate_btn)
+
+        tabs = QTabWidget()
+        settings_tab = QWidget()
+        slayout = QVBoxLayout()
 
         # widget to select syringe
         syringe_layout = QHBoxLayout()
@@ -53,7 +65,7 @@ class PumpConfig(QFrame):
         self.syringe_select.currentIndexChanged.connect(lambda x: self.change_syringe(None))
         syringe_layout.addWidget(syringe_label)
         syringe_layout.addWidget(self.syringe_select)
-        vlayout.addLayout(syringe_layout)
+        slayout.addLayout(syringe_layout)
 
         # widget to change step type
         step_type_layout = QHBoxLayout()
@@ -65,7 +77,7 @@ class PumpConfig(QFrame):
         self.step_type_select.currentIndexChanged.connect(lambda x: self.set_microstep_type(None))
         step_type_layout.addWidget(step_type_label)
         step_type_layout.addWidget(self.step_type_select)
-        vlayout.addLayout(step_type_layout)
+        slayout.addLayout(step_type_layout)
 
         #widget to set step speed
         step_speed_layout = QHBoxLayout()
@@ -77,7 +89,7 @@ class PumpConfig(QFrame):
         self.step_speed.editingFinished.connect(self.set_step_speed)
         step_speed_layout.addWidget(step_speed_label)
         step_speed_layout.addWidget(self.step_speed)
-        vlayout.addLayout(step_speed_layout)
+        slayout.addLayout(step_speed_layout)
 
         #widget to set flow rate
         flow_rate_layout = QHBoxLayout()
@@ -89,7 +101,7 @@ class PumpConfig(QFrame):
         self.flow_rate.editingFinished.connect(self.set_flow_rate)
         flow_rate_layout.addWidget(flow_rate_label)
         flow_rate_layout.addWidget(self.flow_rate)
-        vlayout.addLayout(flow_rate_layout)
+        slayout.addLayout(flow_rate_layout)
 
         # widget to control auto-fill
         auto_fill_layout = QHBoxLayout()
@@ -105,22 +117,29 @@ class PumpConfig(QFrame):
         self.auto_fill_btn.clicked.connect(self.toggle_auto_fill)
         auto_fill_layout.addWidget(auto_fill_thresh_label)
         auto_fill_layout.addWidget(self.auto_fill_thresh)
-        auto_fill_layout.addWidget(self.auto_fill_btn)
-        vlayout.addLayout(auto_fill_layout)
+        slayout.addLayout(auto_fill_layout)
+        slayout.addWidget(self.auto_fill_btn)
+
+        settings_tab.setLayout(slayout)
+        tabs.addTab(settings_tab, "Settings")
+
+        ctl_tab = QWidget()
+        clayout = QVBoxLayout()
 
         # button to fill the lines
         self.fill_btn = QPushButton("Fill Lines")
         self.fill_btn.clicked.connect(lambda x: self.fill_lines())
-        vlayout.addWidget(self.fill_btn)
+        clayout.addWidget(self.fill_btn)
 
         # button to fill all the lines
         self.fill_all_btn = QPushButton("Fill all lines")
         self.fill_all_btn.clicked.connect(lambda x: self.fill_lines(fill_all = True))
-        vlayout.addWidget(self.fill_all_btn)
+        clayout.addWidget(self.fill_all_btn)
 
         # widget to push some fluid to the reservoir
-        push_res_label = QLabel("Push To Reservoir")
-        vlayout.addWidget(push_res_label)
+        push_box = QGroupBox()
+        push_layout = QVBoxLayout()
+        push_box.setTitle("Push To Reservoir")
         push_res_layout = QHBoxLayout()
         amt_label = QLabel("Amount")
         self.push_amt = QLineEdit()
@@ -131,26 +150,23 @@ class PumpConfig(QFrame):
         push_res_layout.addWidget(amt_label)
         push_res_layout.addWidget(self.push_amt)
         push_res_layout.addWidget(self.push_res_btn)
-        vlayout.addLayout(push_res_layout)
+        push_layout.addLayout(push_res_layout)
+        push_box.setLayout(push_layout)
+        clayout.addWidget(push_box)
 
         # button to empty all of the lines
         self.empty_btn = QPushButton("Empty Lines")
         self.empty_btn.clicked.connect(self.empty_lines)
-        vlayout.addWidget(self.empty_btn)
-
-        # button to calibrate the pump
-        self.calibrate_btn = QPushButton("Calibrate")
-        self.calibrate_btn.clicked.connect(self.calibrate)
-        vlayout.addWidget(self.calibrate_btn)
+        clayout.addWidget(self.empty_btn)
+        ctl_tab.setLayout(clayout)
+        tabs.addTab(ctl_tab, "Control")
 
         # some formatting
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
-        self.setLineWidth(1)
-        vlayout.addLayout(syringe_layout)
+        vlayout.addWidget(tabs)
         self.setLayout(vlayout)
 
     def _update_pos(self, pos:float) -> None:
-        self.pos_label.setText(f"Position: {pos:.3f} cm")
+        self.pos_label.setText(f"{pos:.3f} cm")
 
     def calibrate(self) -> None:
         """
@@ -384,18 +400,25 @@ class RPIRewardControl(RewardWidget):
         vlayout= QVBoxLayout()
 
         # module name
-        module_label = QLabel(self.module)
-        vlayout.addWidget(module_label)
+        self.setTitle(self.module)
 
         # pump name
         pump_name = self.client.get(f"modules['{self.module}'].pump.name")
-        pump_label = QLabel(f"Pump: {pump_name}")
-        vlayout.addWidget(pump_label)
+        playout = QHBoxLayout()
+        playout.addWidget(QLabel(f"Pump: "))
+        pump_le = QLineEdit()
+        pump_le.setText(pump_name)
+        pump_le.setEnabled(False)
+        playout.addWidget(pump_le)
+        vlayout.addLayout(playout)
 
         # widget to display and reset lick count
         lick_layout = QHBoxLayout()
         self.lick_count_n = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
-        self.lick_count = QLabel(f"Lick Count: {self.lick_count_n}")
+        lick_layout.addWidget(QLabel(f"Lick Count: "))
+        self.lick_count = QLineEdit()
+        self.lick_count.setText(f"{self.lick_count_n}")
+        self.lick_count.setEnabled(False)
         lick_layout.addWidget(self.lick_count)
         reset_btn = QPushButton("Reset")
         reset_btn.clicked.connect(self.reset_licks)
@@ -405,6 +428,12 @@ class RPIRewardControl(RewardWidget):
         self.lick_thread.lick_num_updated.connect(self._update_licks)
         self.lick_thread.start()
 
+
+        hlayout = QHBoxLayout()
+        tabs = QTabWidget()
+        reward_tab = QWidget()
+        rlayout = QVBoxLayout()
+
         # widget to control post reward delay
         post_delay_layout = QHBoxLayout()
         post_delay_layout.addWidget(QLabel("Post Reward Delay (s): "))
@@ -413,20 +442,17 @@ class RPIRewardControl(RewardWidget):
         self.post_delay.setText(str(self.client.get(f"modules['{self.module}'].post_delay")))
         self.post_delay.editingFinished.connect(self.update_post_delay)
         post_delay_layout.addWidget(self.post_delay)
-        vlayout.addLayout(post_delay_layout)
+        rlayout.addLayout(post_delay_layout)
 
         # widget to set reward amount and manually deliver
         pulse_layout = QHBoxLayout()
-        amt_label = QLabel("Reward Amount (mL)")
+        amt_label = QLabel("Pulse Amount (mL)")
         self.amt = QLineEdit()
         self.amt.setValidator(QDoubleValidator())
         self.amt.setText("0.2")
-        pulse_btn = QPushButton("Pulse")
-        pulse_btn.clicked.connect(self._single_pulse)
         pulse_layout.addWidget(amt_label)
         pulse_layout.addWidget(self.amt)
-        pulse_layout.addWidget(pulse_btn)
-        vlayout.addLayout(pulse_layout)
+        rlayout.addLayout(pulse_layout)
 
         # widget to set small reward fraction and manually deliver
         small_pulse_layout = QHBoxLayout()
@@ -435,13 +461,15 @@ class RPIRewardControl(RewardWidget):
         only_frac = QDoubleValidator(0.,1., 6, notation = QDoubleValidator.StandardNotation)
         self.small_pulse_frac.setText("0.6")
         self.small_pulse_frac.setValidator(only_frac) # this doesn't seem to be working for some reason
-        small_pulse_btn = QPushButton("Small Pulse")
-        small_pulse_btn.clicked.connect(self._small_pulse)
         small_pulse_layout.addWidget(small_pulse_edit_label)
         small_pulse_layout.addWidget(self.small_pulse_frac)
-        small_pulse_layout.addWidget(small_pulse_btn)
-        vlayout.addLayout(small_pulse_layout)
+        rlayout.addLayout(small_pulse_layout)
 
+        reward_tab.setLayout(rlayout)
+        tabs.addTab(reward_tab, "Reward")
+
+        tone_tab = QWidget()
+        tlayout = QVBoxLayout()
         # widget to control speaker tone frequency
         tone_freq_layout = QHBoxLayout()
         tone_freq_label = QLabel("Tone Frequency [Hz]")
@@ -450,7 +478,7 @@ class RPIRewardControl(RewardWidget):
         self.tone_freq.setText("800")
         tone_freq_layout.addWidget(tone_freq_label)
         tone_freq_layout.addWidget(self.tone_freq)
-        vlayout.addLayout(tone_freq_layout)
+        tlayout.addLayout(tone_freq_layout)
 
         # widget to control speaker tone duration
         tone_dur_layout = QHBoxLayout()
@@ -460,7 +488,7 @@ class RPIRewardControl(RewardWidget):
         self.tone_dur.setText("1")
         tone_dur_layout.addWidget(tone_dur_label)
         tone_dur_layout.addWidget(self.tone_dur)
-        vlayout.addLayout(tone_dur_layout)
+        tlayout.addLayout(tone_dur_layout)
 
         # widget to control speaker tone volume
         tone_vol_layout = QHBoxLayout()
@@ -470,38 +498,60 @@ class RPIRewardControl(RewardWidget):
         self.tone_vol.setText("1")
         tone_vol_layout.addWidget(tone_vol_label)
         tone_vol_layout.addWidget(self.tone_vol)
-        vlayout.addLayout(tone_vol_layout)
+        tlayout.addLayout(tone_vol_layout)
 
-        # button to manually play tone
+        tone_tab.setLayout(tlayout)
+        tabs.addTab(tone_tab, "Tone")
+        hlayout.addWidget(tabs)
+
+        clayout = QVBoxLayout() 
+
+        #pulse reward button
+        pulse_btn = QPushButton("Pulse")
+        pulse_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        pulse_btn.clicked.connect(self._single_pulse)
+        clayout.addWidget(pulse_btn)
+
+        # small reward pulse button
+        small_pulse_btn = QPushButton("Small Pulse")
+        small_pulse_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        small_pulse_btn.clicked.connect(self._small_pulse)
+        clayout.addWidget(small_pulse_btn)
+
+        # tone button
         tone_btn = QPushButton("Play Tone")
+        tone_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         tone_btn.clicked.connect(lambda x: self.play_tone())
-        vlayout.addWidget(tone_btn)
+        clayout.addWidget(tone_btn)
         
         # button to toggle the led
         self.led_btn = QPushButton("Toggle LED")
+        self.led_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.led_btn.setCheckable(True)
         init_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
         self.led_btn.setChecked(init_state)
         self.led_btn.clicked.connect(self.toggle_led)
-        vlayout.addWidget(self.led_btn)
+        clayout.addWidget(self.led_btn)
 
         # button to toggle the valve
         self.valve_btn = QPushButton("Toggle Valve")
+        self.valve_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.valve_btn.setCheckable(True)
         init_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
         self.valve_btn.setChecked(init_state)
         self.valve_btn.clicked.connect(self.toggle_valve)
-        vlayout.addWidget(self.valve_btn)
+        clayout.addWidget(self.valve_btn)
 
-        # some formatting
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
-        self.setLineWidth(2)
+        hlayout.addLayout(clayout)
+        gb = QGroupBox()
+        gb.setLayout(hlayout)
+        vlayout.addWidget(gb)
         self.setLayout(vlayout)
     
     def _update_licks(self, amt):
         if amt > 0: self.new_licks.emit(amt)
         self.lick_count_n += amt
-        self.lick_count.setText(f"Lick Count: {self.lick_count_n}")
+        self.lick_count.setText(f"{self.lick_count_n}")
 
     def _single_pulse(self):
         amt = float(self.amt.text())

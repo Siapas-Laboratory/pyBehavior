@@ -1,5 +1,5 @@
 # pyBehavior
-pyBehavior is a python-based framework for developing GUIs to interface with animal behavioral aparatuses. This repository contains a set of GUI elements that users are meant to either sub-class and customize, or use out-the-box to build custom GUIs. The framework also provides support for the development of automated, self-documenting behavioral protocols which can be run through the GUIs. Knowledge of PyQt5 is helpful but not strictly necessary for devloping GUIs in this framework. pyBehavior protocols are simply an abstraction of the StateMachine class in the python-statemachine library so we point users to their [documentation]() for additional details on how to define a state machine that encompasses the task you need to program. 
+pyBehavior is a python-based framework for developing GUIs that interface with an animal behavioral aparatus. This repository contains a set of GUI elements that users are meant to either sub-class and customize, or use out-the-box to build custom GUIs. The framework also provides support for the development of automated, self-documenting behavioral protocols which can be run through the GUIs. Knowledge of PyQt5 is helpful but not strictly necessary for devloping GUIs in this framework. pyBehavior protocols, however, are simply an abstraction of the StateMachine class in the python-statemachine library. As a result, for details about creating a state machine in python we point users to their [documentation](). 
 
 ## Getting Started
 ### Installation
@@ -32,14 +32,14 @@ On a new device you will need to start by creating a new root setup directory wh
 python -m pyBehavior.main --setup_dir /path/to/root/setup/dir
 ```
 
- From here select `Edit Mappings` and click the `create` button at the top. This will open a dialog where you can enter information about the setup.
+ From here select `Edit Mappings` and click the `create` button at the top of the new window. This will open a dialog where you can enter information about the setup.
 
  ![alt text](docs/new_setup.jpg "new setup")
 
- Once completed, if you are interfacing with national instruments cards you will want to first use the map editor window to assign names to any relevant ports on your national instruments cards, indicate whether or not they should be used as a digital input, and save. At this point you can close all windows to work on developing the setup GUI. Once you've finished developing the setup GUI and any protocols you would like to run on it, you can run the above command again to launch the GUI and instead choose `Select Setup` to select and open GUI you've created. At the top of the window you'll find a drop down menu where you can select a protocol to run.
+ Once completed, if you are interfacing with national instruments cards you will want to first use the map editor window to assign names to any relevant ports on your national instruments cards, indicate whether or not they should be used as a digital input, and save. At this point you can close all windows to work on developing the setup GUI. Once you've finished developing the setup GUI and any protocols you would like to run on it, you can launch your GUI by running the above command again and instead choosing `Select Setup` to select and open your GUI. At the top of your GUI you'll find a drop down menu where you can select a protocol to run. 
 
 ## Creating your first Setup GUI
-After using the GUI to create the setup sub-directory you should see that your setup root directory has the following structure:
+Here we will describe the process of creating a setup GUI. For an example of a root setup directory with functioning setup GUIs defined inside see the example folder. After using the GUI to create the setup sub-directory you should see that your setup root directory has the following structure:
 
 
 ```
@@ -65,10 +65,10 @@ class setup1(SetupGUI):
 
 ```
 
-This code imports the relevant GUI elements from pyBehavior and creates the GUI main window by sub-classing the SetupGUI class and calling it's init method (**NOTE: Do NOT alter the definition of this class. pyBehavior assumes the GUI class has the same name as the setup folder it is in**). See the help documentation for the SetupGUI class for more details on methods available to you through this class. Here we will briefly discuss the essential features needed to build a basic GUI. 
+This code imports the relevant GUI elements from pyBehavior and creates the GUI main window by sub-classing the SetupGUI class and calling its init method (**NOTE: Do NOT alter the definition of this class. pyBehavior assumes the GUI class has the same name as the setup folder it is in**). See the help documentation for the SetupGUI class for more details on methods available to you through this class. Here we will briefly discuss the essential features needed to build a basic GUI. 
 
 ### Adding Reward Widgets
-When building the GUI you will need to create instances of appropriate reward widgets to control any reward endpoints in the setup. These widgets are sub-classes of the `RewardWidget` class defined in pyBehavior.gui. Currently we provide 3 types of reward widgets; these include one for the National Instruments controlled reward modules we have in lab, one for a remote controlled ratBerryPi reward module and another for locally controlled ratBerryPi reward module. These widgets can be imported and instantiated as follows:
+When building the GUI you will need to create instances of appropriate reward widgets to control any reward endpoints in the setup. These widgets are sub-classes of the `RewardWidget` class defined in pyBehavior.gui. Currently we provide 3 types of reward widgets; these include one for the National Instruments controlled reward modules we have in lab, one for a remote controlled ratBerryPi reward module, and another for locally controlled ratBerryPi reward module. These widgets can be imported and instantiated as follows:
 
 * National Instruments: 
 ```

@@ -1,7 +1,7 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, 
-                             QComboBox, QFileDialog, QFrame, QLineEdit)
+                             QComboBox, QFileDialog, QFrame, QLineEdit, QGroupBox)
 from pathlib import Path
 from datetime import datetime
 import importlib
@@ -16,10 +16,10 @@ from scp import SCPClient
 import typing
 
 
-class RewardWidgetMeta(type(QFrame), ABCMeta):
+class RewardWidgetMeta(type(QGroupBox), ABCMeta):
     pass
 
-class RewardWidget(QFrame, metaclass = RewardWidgetMeta):
+class RewardWidget(QGroupBox, metaclass = RewardWidgetMeta):
     """
     abstract class to be inherited when creating widgets for reward control
     defines an abstract method trigger_reward which must be defined in the subclass
