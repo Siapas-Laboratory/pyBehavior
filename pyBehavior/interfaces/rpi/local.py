@@ -479,7 +479,7 @@ class RPIRewardControl(RewardWidget):
         self.led_btn = QPushButton("Toggle LED")
         self.led_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.led_btn.setCheckable(True)
-        init_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
+        init_state = self.interface.modules[self.module].LED.on
         self.led_btn.setChecked(init_state)
         self.led_btn.clicked.connect(self.toggle_led)
         clayout.addWidget(self.led_btn)
@@ -488,7 +488,7 @@ class RPIRewardControl(RewardWidget):
         self.valve_btn = QPushButton("Toggle Valve")
         self.valve_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.valve_btn.setCheckable(True)
-        init_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+        init_state = self.interface.modules[self.module].valve.is_open
         self.valve_btn.setChecked(init_state)
         self.valve_btn.clicked.connect(self.toggle_valve)
         clayout.addWidget(self.valve_btn)
