@@ -29,7 +29,7 @@ class NewSetupDialog(QDialog):
         self.fname_input = QLineEdit()
         message = QLabel("Please enter a name for the new setup. Avoid spaces and all symbols except for _")
         self.use_ni_cards = QCheckBox("Check here if this setup will use National Instruments Cards")
-        self.use_rpi = QCheckBox("Check here if this setup will connect remotely to a ratBerryPi")
+        self.use_rpi = QCheckBox("Check here if this setup will connect to a ratBerryPi")
 
 
         rpi_dialog_layout = QVBoxLayout()
@@ -121,7 +121,6 @@ class Settings(QMainWindow):
         if len(available_mappings)>0:
             self.load_map()
         else:
-            self.map_file = None
             self.mapping = pd.DataFrame()
 
         self.map_file_select.currentIndexChanged.connect(self.change_map_file)
@@ -137,6 +136,13 @@ class Settings(QMainWindow):
         self.save_btn.clicked.connect(self.save)
         self.header_layout.addWidget(self.save_btn)
         self.layout.addLayout(self.header_layout)
+
+        label_layout = QHBoxLayout()
+        label_layout.addWidget(QLabel("Address"))
+        label_layout.addWidget(QLabel("Name"))
+        label_layout.addWidget(QLabel("DI"))
+        label_layout.addWidget(QLabel(" "))
+        self.layout.addLayout(label_layout)
 
         # fill the body of the window with port labels and inputs for names to assign
         self.port_labels = []
