@@ -65,7 +65,7 @@ class setup1(SetupGUI):
 
 ```
 
-This code imports the relevant GUI elements from pyBehavior and creates the GUI main window by sub-classing the SetupGUI class and calling its init method (**NOTE: Do NOT alter the definition of this class. pyBehavior assumes the GUI class has the same name as the setup folder it is in**). See the help documentation for the SetupGUI class for more details on methods available to you through this class. Here we will briefly discuss the essential features needed to build a basic GUI. 
+This code imports the relevant GUI elements from pyBehavior and defines the GUI main window by sub-classing the SetupGUI class and calling its init method (**NOTE: Do NOT alter the definition of this class. pyBehavior assumes the GUI class has the same name as the setup folder it is in**). See the help documentation for the SetupGUI class for more details on methods available to you through this class. Here we will briefly discuss the essential features needed to build a basic GUI. 
 
 ### Adding Reward Widgets
 When building the GUI you will need to create instances of appropriate reward widgets to control any reward endpoints in the setup. These widgets are sub-classes of the `RewardWidget` class defined in pyBehavior.gui. Currently we provide 3 types of reward widgets; these include one for the National Instruments controlled reward modules we have in lab, one for a remote controlled ratBerryPi reward module, and another for locally controlled ratBerryPi reward module. These widgets can be imported and instantiated as follows:
@@ -189,8 +189,13 @@ self.register_state_machine_input(self.ni_di.loc['lick'].rising_edge, 'lick')
 ```
 
 ### Eventstring Handlers
-
-
+Often times it may be useful to have a mechanism of timestamping events that are logged through pyBehavior with a common clock. In order to do this, pyBehavior provides support for sending events that it logs as "event strings" to a timestamping unit while simultaneously sending a TTL pulse. For this to be a useful feature, you would need to have a separate program running that is set up to timestamp digital inputs while receiving messages over a TCP/IP port and logging them. This feature is currently only supported for setups with access to national instruments digital i/o ports. In order to make use of the feature you need to use the `add_eventstring_handler` method to create an EventstringSender object which will handle sending the event strings. When calling this method you will need to specify a name for the handler, what digital i/o port you want to write the ttl pulses to and the port you will be sending the messages to. The `add_eventstring_handler` method also returns reference to a widget that can be added to the GUI for users to specify the destination of eventstrings. Once configured, whenever you call the log method of the gui you may optionally specify the name of this handler with the event_line key word argument. By specifiying this argument whenever you log a message it will be sent over TCP/IP to the specified port while a TTL pulse is sent. See below for an example:
+```
+ev_logger = self.add_eventstring_handler('event0', 'Dev3/port0/line0')
+self.layout.addWidget(ev_logger)
+self.log('started eventstring handler', event_line='event0')
+```
+Note if any eventstring handler is configured, the GUI will use it by default whenever it logs anything. To disable this behavior set the `raise_event_line` keyword argument to False when calling self.log.
 
 ## Creating a New Protocol
 Each protocol should be defined in it's own python file in the protocols sub-director of the associated setup. ...
