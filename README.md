@@ -1,5 +1,5 @@
 # pyBehavior
-pyBehavior is a python-based framework for developing GUIs that interface with an animal behavioral aparatus. This repository contains a set of GUI elements that users are meant to either sub-class and customize, or use out-the-box to build custom GUIs. The framework also provides support for the development of automated, self-documenting behavioral protocols which can be run through the GUIs. Knowledge of PyQt5 is helpful but not strictly necessary for devloping GUIs in this framework. pyBehavior protocols, however, are simply an abstraction of the StateMachine class in the python-statemachine library. As a result, for details about creating a state machine in python we point users to their [documentation](). 
+pyBehavior is a python-based framework for developing GUIs that interface with an animal behavioral aparatus. This repository contains a set of GUI elements that users are meant to either sub-class and customize, or use out-the-box to build custom GUIs. The framework also provides support for the development of automated, self-documenting behavioral protocols which can be run through the GUIs. Knowledge of PyQt5 is helpful but not strictly necessary for devloping GUIs in this framework. pyBehavior protocols, however, are simply an abstraction of the StateMachine class in the python-statemachine library. As a result, for details about creating a state machine in python we point users to their [documentation](https://python-statemachine.readthedocs.io/en/latest/readme.html). 
 
 ## Getting Started
 ### Installation
@@ -54,7 +54,7 @@ root_dir
     
 ```
 
-where `setup1` is the hypothetical name of the setup you just created. You will only see `port_map.csv` if you are interfacing with a national instruments card. This contains the names you assigned to the ports in the GUI as well as whether or not they should be treated as a digital input. `rpi_config.yaml` will only appear if you are using a [ratBerryPi]() and contains relevant information for interfacing with the pi. The `protocols` sub-directory is empty at first but is where you should put files with code for behavioral protocols you would like to run on the setup (see [Creating a New Protocol](#creating-a-new-protocol)). `gui.py` is where you will build the GUI for the setup. It should have some version of the following starter code already in it:
+where `setup1` is the hypothetical name of the setup you just created. You will only see `port_map.csv` if you are interfacing with a national instruments card. This contains the names you assigned to the ports in the GUI as well as whether or not they should be treated as a digital input. `rpi_config.yaml` will only appear if you are using a [ratBerryPi](https://github.com/Siapas-Laboratory/ratBerryPi) and contains relevant information for interfacing with the pi. The `protocols` sub-directory is empty at first but is where you should put files with code for behavioral protocols you would like to run on the setup (see [Creating a New Protocol](#creating-a-new-protocol)). `gui.py` is where you will build the GUI for the setup. It should have some version of the following starter code already in it:
 
 ```
 from pyBehavior.gui import *
@@ -143,11 +143,11 @@ self.register_reward_module('module1', reward_module)
 This stores the module in a dictionary located at `self.reward_modules` where the keys are the assigned names of the modules and the values are references to the reward widgets themselves. Once registered, you may trigger a reward on this module from an instance method of this class by calling `self.trigger_reward('module1', amt)` where amt is the reward amount in mL.
 
 ### Registering state machine inputs
-The process of creating a protocol in pyBehavior involves defining a state machine (see [Creating a New Protocol](#creating-a-new-protocol)). In order to link inputs that we may read from a GPIO pin on a raspberry pi or a digital line on a national instruments card to actions which can trigger a transition in the state machine, pyBehavior uses pyqt signals. 
+The process of creating a protocol in pyBehavior involves defining a state machine (see [Creating a New Protocol](#creating-a-new-protocol)). In order to link real world events, such as the rising edge of a GPIO pin on a raspberry pi, to actions which can trigger a transition in the state machine, pyBehavior uses pyqt signals. 
 
 Signals in pyqt are essentially notifications that a pyqt object can be configured to emit whenever something happens. For example, in the case of ratBerryPi reward modules, all lickometers have an attribute lick_notifier which stores a reference to an instance of the LickNotifier class, which defines a custom pyqt object with the associated signal `new_lick`. The lickometer is configured to emit the `new_lick` signal of it's lick_notifier whenever a new lick is detected. 
 
-Signals in pyqt generally become useful when they are connected to a slot, or callback function. In our case, we want to connect signals of interest to the state machine to callback functions which will trigger the appropriate action on the machine. This is accomplished in pyBehavior through the `register_state_machine_input` method of the setup GUI class. This method takes a provided pyqt signal and connects it to a callback function that formats the data contained in the signal and passes it on to the `handle_input` method of the Protocol class (see [Creating a New Protocol](#creating-a-new-protocol) for details on `handle_input`). The result is that whenever the specified signal is emitted the protocol's `handle_input` method is called and the appropriate action can be taken on the state machine.
+Signals in pyqt generally become useful when they are connected to a slot, or callback function. In our case, we want to connect signals of interest to callback functions which will trigger the appropriate action on the state machine. This is accomplished in pyBehavior through the `register_state_machine_input` method of the setup GUI class. This method takes a provided pyqt signal and connects it to a callback function that formats the data contained in the signal and passes it on to the `handle_input` method of the Protocol class. As discussed later, handle_input is a common entrypoint for all protocols, which for a specific protocol should define what actions of the state machine should be called depending on the type of input it recieves (see [Creating a New Protocol](#creating-a-new-protocol) for details). The result is that whenever the specified signal is emitted the protocol's `handle_input` method is called and the appropriate action can be taken on the state machine.
 
 In the case of the `new_lick` signal from the lickometers discussed above, for convenience, this signal is already connected to a callback function in the local `RPIRewardControl` class which emits a similar signal called `new_lick`. We can register this signal as an input to the state machine as follows:
 
@@ -155,7 +155,7 @@ In the case of the `new_lick` signal from the lickometers discussed above, for c
 self.register_state_machine_input(self.reward_modules['module1'].new_lick, 'module1 lick')
 ```
 
-where the second argument is an identifier for the input to the state machine. The effect is that in our `handle_input` method of the protocol class we can identify this input as follows:
+where the second argument is an identifier for the input to the state machine. In our `handle_input` method of the protocol class we can then identify this input as follows:
 
 ```
 def handle_input(self, data):
@@ -198,4 +198,14 @@ self.log('started eventstring handler', event_line='event0')
 Note if any eventstring handler is configured, the GUI will use it by default whenever it logs anything. To disable this behavior set the `raise_event_line` keyword argument to False when calling self.log.
 
 ## Creating a New Protocol
-Each protocol should be defined in it's own python file in the protocols sub-director of the associated setup. ...
+Like many other behavioral control frameworks, pyBehavior operates on the formalization of behavioral protocols as [fine state machines](https://en.wikipedia.org/wiki/Finite-state_machine). As a result when developing a protocol you will first need to think about how to cast your task as a finite state machine. Each protocol should be defined in it's own python file in the protocols sub-directory of the associated setup. These files should contain within them the definition of a class with the same name as the file. This class must be a sub-class of the Protocol class defined in pyBehavior.protocols. The Protocol class, importantly,is simply an abstract version of the StateMachine class from python-statemachine library (for details see the [python-statemachine documentation](https://python-statemachine.readthedocs.io/en/latest/readme.html)). The only difference between the StateMachine class and Protocol is that subclasses of Protocol must define a handle_input method. This is critical because handle_input functions as a common method to all Protocols that the setup GUI expects and calls whenever inputs are received in order to perform actions through the state machine. As such, handle_input must define the logic of what actions should be called depending on the provided input (see [Registering State Machine Inputs](#registering-state-machine-inputs)). handle_input should take as input one argument which will be a dictionary with the fields 'type', 'metadata', and 'data'. As described above, inputs can be identified by the 'type' field. As a result, your handle_inputs method will generally have the following structure:
+
+```
+def handle_inputs(self, data):
+    if data['type'] == 'a':
+        action_a()
+    elif data['type'] == 'b':
+        action_b()
+```
+
+where action_a and action_b are actions defined for the state machine. For example protocols see the example folder of this repository.

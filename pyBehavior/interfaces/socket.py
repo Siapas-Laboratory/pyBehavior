@@ -1,12 +1,12 @@
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
 import numpy as np
 import socket
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QWidget, QFrame
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QGroupBox
 from PyQt5.QtGui import  QDoubleValidator
 import ast
 
 
-class Position(QFrame):
+class Position(QGroupBox):
 
     new_position = pyqtSignal(list, name = 'newPosition')
 
@@ -35,8 +35,6 @@ class Position(QFrame):
         layout.addLayout(pos_layout)
 
         self.setLayout(layout)
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
-        self.setLineWidth(2)
 
     def start(self):
         self.pos_thread.start()

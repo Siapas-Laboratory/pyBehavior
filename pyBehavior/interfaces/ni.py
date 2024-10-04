@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QSpinBox, QCheckBox, QFrame
+from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QSpinBox, QGroupBox
 from PyQt5.QtGui import  QDoubleValidator
 import time
 from datetime import datetime
@@ -230,15 +230,13 @@ class NIRewardControl(RewardWidget):
             digital_write(self.widget.port, True)
 
 
-class EventstringSender(QFrame):
+class EventstringSender(QGroupBox):
     def __init__(self, parent, event_line_name:str, event_line_addr:str, ip:str = socket.gethostbyname(socket.gethostname()), port:int = 2345):
         super(EventstringSender, self).__init__()
 
+        self.setTitle(f"{event_line_name} Eventstring Destination")
         self.parent = parent
         self.event_line_addr = event_line_addr
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Event Line: {event_line_name}"))
-        layout.addWidget(QLabel("Eventstring Destination"))
         port_layout = QHBoxLayout()
         ip_label = QLabel(f"IP: ")
         self.ip = QLineEdit()
@@ -252,13 +250,10 @@ class EventstringSender(QFrame):
         port_layout.addWidget(self.ip)
         port_layout.addWidget(port_label)
         port_layout.addWidget(self.port)
-        layout.addLayout(port_layout)
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         
-        self.setLayout(layout)
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
-        self.setLineWidth(2)
+        self.setLayout(port_layout)
     
     def bind_port(self):
         if self.sock is not None:

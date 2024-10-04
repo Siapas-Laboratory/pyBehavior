@@ -1,7 +1,7 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, 
-                             QComboBox, QFileDialog, QFrame, QLineEdit, QGroupBox)
+                             QComboBox, QFileDialog, QLineEdit, QGroupBox)
 from pathlib import Path
 from datetime import datetime
 import importlib
