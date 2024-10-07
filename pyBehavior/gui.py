@@ -258,7 +258,10 @@ class SetupGUI(QMainWindow):
         if not issubclass(state_machine, Protocol):
             raise ValueError("protocols must be subclasses of utils.protocols.Protocol")
         self._state_machine = state_machine(self)
-        if self._has_remote_rpi: self.client.run_command('record', channel = 'run')
+        if self._has_remote_rpi: 
+            self.client.run_command('record', channel = 'run')
+        elif self._has_local_rpi:
+            self.interface.record(data_dir=dir_name)
 
         # update gui element accessibility
         self._start_btn.setEnabled(False)
