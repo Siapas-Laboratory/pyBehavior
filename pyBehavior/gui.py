@@ -154,7 +154,7 @@ class SetupGUI(QMainWindow):
         # the collection of reward modules
         self.reward_modules = ModuleDict()
 
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
 
         # placeholder for file handler
@@ -357,10 +357,9 @@ class SetupGUI(QMainWindow):
 
         if event_line:
             self._eventstring_handlers[event_line].send(event)
-        elif raise_event_line:
-            if len(self._eventstring_handlers)>0:
-                event_line = list(self._eventstring_handlers.keys())[0]
-                self._eventstring_handlers[event_line].send(event)
+        elif raise_event_line and len(self._eventstring_handlers)>0:
+            event_line = list(self._eventstring_handlers.keys())[0]
+            self._eventstring_handlers[event_line].send(event)
         else:
             self.logger.info(event)
 

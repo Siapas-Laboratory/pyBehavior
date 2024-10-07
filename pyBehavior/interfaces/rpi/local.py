@@ -39,7 +39,7 @@ class PumpConfig(QGroupBox):
 
         # label to keep track of the pump piston position
         playout = QHBoxLayout()
-        playout.addWidget(QLabel("Position: "))
+        playout.addWidget(QLabel("Position [cm]: "))
         self.pos_label = QLineEdit()
         self.pos_label.setText(f"{self.interface.pumps[self.pump].position}")
         self.pos_label.setEnabled(False)
@@ -168,7 +168,7 @@ class PumpConfig(QGroupBox):
         self.setLayout(vlayout)
 
     def _update_pos(self, pos: float) -> None:
-        self.pos_label.setText(f"Position: {pos:.3f} cm")
+        self.pos_label.setText(f"{pos:.3f}")
 
     def calibrate(self) -> None:
         """

@@ -166,7 +166,7 @@ class PumpConfig(QGroupBox):
         self.setLayout(vlayout)
 
     def _update_pos(self, pos:float) -> None:
-        self.pos_label.setText(f"{pos:.3f} cm")
+        self.pos_label.setText(f"{pos:.3f}")
 
     def calibrate(self) -> None:
         """
