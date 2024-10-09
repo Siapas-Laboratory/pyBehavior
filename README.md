@@ -198,7 +198,9 @@ self.log('started eventstring handler', event_line='event0')
 Note if any eventstring handler is configured, the GUI will use it by default whenever it logs anything. To disable this behavior set the `raise_event_line` keyword argument to False when calling self.log.
 
 ## Creating a New Protocol
-Like many other behavioral control frameworks, pyBehavior operates on the formalization of behavioral protocols as [fine state machines](https://en.wikipedia.org/wiki/Finite-state_machine). As a result when developing a protocol you will first need to think about how to cast your task as a finite state machine. Each protocol should be defined in it's own python file in the protocols sub-directory of the associated setup. These files should contain within them the definition of a class with the same name as the file. This class must be a sub-class of the Protocol class defined in pyBehavior.protocols. The Protocol class, importantly,is simply an abstract version of the StateMachine class from python-statemachine library (for details see the [python-statemachine documentation](https://python-statemachine.readthedocs.io/en/latest/readme.html)). The main difference between the StateMachine class and Protocol is that subclasses of Protocol must define a handle_input method. This is critical because handle_input functions as a common method to all Protocols that the setup GUI expects and calls whenever inputs are received in order to perform actions through the state machine. As such, handle_input must define the logic of what actions should be called depending on the provided input (see [Registering State Machine Inputs](#registering-state-machine-inputs)). handle_input should take as input one argument which will be a dictionary with the fields 'type', 'metadata', and 'data'. As described above, inputs can be identified by the 'type' field. As a result, your handle_inputs method will generally have the following structure:
+Like many other behavioral control frameworks, pyBehavior operates on the formalization of behavioral protocols as [fine state machines](https://en.wikipedia.org/wiki/Finite-state_machine). As a result when developing a protocol you will first need to think about how to cast your task as a finite state machine. When casting your task as a state machine, it's important to keep in mind that actions will generally only be called when a registered input to the state machine is triggered. The only action you may configure that can be triggered independently of a registered input is a timeout, which we will discuss later. All other action should be thought of as extensions of registered inputs. 
+
+Each protocol should be defined in it's own python file in the protocols sub-directory of the associated setup. These files should contain within them the definition of a class with the same name as the file. This class must be a sub-class of the Protocol class defined in pyBehavior.protocols. The Protocol class, importantly,is simply an abstract version of the StateMachine class from python-statemachine library (for details see the [python-statemachine documentation](https://python-statemachine.readthedocs.io/en/latest/readme.html)). The main difference between the StateMachine class and Protocol is that subclasses of Protocol must define a handle_input method. This is critical because handle_input functions as a common method to all Protocols that the setup GUI expects and calls in order to perform actions through the state machine whenever inputs are received. As such, handle_input must define the logic of what actions should be called depending on the provided input (see [Registering State Machine Inputs](#registering-state-machine-inputs)). handle_input should take as input one argument which will be a dictionary with the fields 'type', 'metadata', and 'data'. As described above, inputs can be identified by the 'type' field. As a result, your handle_inputs method will generally have the following structure:
 
 ```
 def handle_inputs(self, data):
@@ -213,11 +215,42 @@ where action_a and action_b are actions defined for the state machine.
 Because your protocols will be sub-classes of the Protocol class, it is essential that you call the init method of the super class if you need to define an init method for your protocol. You can do this as follows:
 
 ```
+from pyBehavior.protocols import Protocol
+
+class example(Protocol):
+    def __init__(self, parent):
+        super(example, self).__init__(parent)
 
 ```
 
-parent here is an argument that the Protocol init method expects and that is passed by default by the setup GUI when instantiating the protocol. In practice it is a reference to the parent setup GUI that is running while this protocol is running. The reference is stored at self.parent. As such, users may call methods defined through the setup GUI from the protocol as needed through self.parent. 
+parent here is an argument that the Protocol init method expects and that is passed by the setup GUI when instantiating the protocol. In practice it is a reference to the parent setup GUI that is running while this protocol is running. The reference is stored at self.parent. As such, users may call methods defined through the setup GUI from the protocol as needed through self.parent. For example we may trigger a reward by calline `self.parent.trigger_reward(...)`
 
-One additional feature provided by the Protocol feature is a mechanism for implementing timeouts as actions to your state machine. Timeouts are a common feature in many behain the framework described above there is no direct way of 
+One additional feature provided by the Protocol class is a mechanism for implementing timeouts as actions in your state machine. Timeouts are a common feature in many tasks where you would like a specified amount of time to pass before transitioning to the next stage of the task. This feature is provided through the start_countdown method of the protocol class. In order to implement the timeout action you must define an action named `timeout` in your protocol with associated state transitions. You may then call the `start_countdown` method of the protocol class whenever you would like to initiate the countdown to the calling of the timeout action. This function takes as input the time in seconds to coundown for. There is also a `stop_countdown` method which can be called to stop the countdown before it calls the timeout action. This method is called within start_countdown before starting the countdown.
 
-For example protocols see the example folder of this repository.
+An example where this can be useful is a simple protocol where the animal is tasked with initiating reward delivery by licking. We may not necessarily want every lick to trigger reward delivery. Instead it would be favorable for a single lick to trigger reward after a long enough period of no licking. We can implement this by defining a state machine with 2 states, licking and not_licking, and 2 actions, lick and timeout. When the animal licks while in the licking state the state machine stays in this state. If it licks while in not_licking it will initiate a reward before transitioning to licking. We can enter the not_licking state by a timeout action which is triggered after a countdown that is reset everytime we enter the licking state. The code for this is as follows:
+
+
+```
+from pyBehavior.protocols import Protocol
+from statemachine import State
+
+REWARD_AMOUNT = 0.5
+TIMEOUT_PERIOD = 5
+
+class lick_for_reward(Protocol):
+    
+    not_licking = State(initial=True)
+    licking = State(enter='start_nolick_countdown')
+
+    lick = (licking.to.itself() |
+            not_licking.to(licking, before='reward'))
+    timeout = licking.to(not_licking)
+
+    def reward(self):
+        self.parent.trigger_reward('module1', REWARD_AMOUNT, force = False, enqueue = True)
+
+    def start_nolick_countdown(self):
+        self.start_countdown(TIMEOUT_PERIOD)
+
+```
+
