@@ -18,3 +18,7 @@ class lick_for_reward(Protocol):
 
     def start_nolick_countdown(self):
         self.start_countdown(TIMEOUT_PERIOD)
+    
+    def handle_input(self, data):
+        if data['type'] == 'lick':
+            self.lick()
