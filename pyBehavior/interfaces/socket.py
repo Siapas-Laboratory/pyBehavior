@@ -8,6 +8,18 @@ import ast
 
 class Position(QGroupBox):
 
+    """
+
+    Widget to receive, display and provide access to
+    real-time position estimates sent over a UDP socket by rataGUI.
+
+    (This widget is still under construction)
+
+    PyQt Signals:
+    new_position(list)
+    
+    """
+
     new_position = pyqtSignal(list, name = 'newPosition')
 
     def __init__(self, port:int = 1234):
