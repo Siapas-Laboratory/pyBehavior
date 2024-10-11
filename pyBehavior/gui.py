@@ -449,7 +449,12 @@ class SetupGUI(QMainWindow):
 
     
 class LoggableLineEdit(QLineEdit):
-
+    """
+    This line edit automatically logs when it's value changes
+    this is useful in custom tracker GUIs for protocols with 
+    parameters that experimenters may update on the fly
+    """
+    
     def __init__(self, name, gui:SetupGUI, event_line:str = None, raise_event_line:bool = True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.gui = gui

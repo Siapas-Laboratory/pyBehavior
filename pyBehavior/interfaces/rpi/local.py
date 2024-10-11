@@ -11,17 +11,6 @@ import typing
 class PumpConfig(QGroupBox):
     """
     a widget for controlling a pump on the ratBerryPi locally
-
-    ...
-    Methods
-    
-    calibrate()
-    fill_lines(modules, fill_all)
-    empty_lines()
-    toggle_auto_fill(on)
-    change_syringe(syringe_type)
-    push_to_res(amount)
-
     """
 
     def __init__(self, interface:RewardInterface, pump:str, parent, modules:typing.List[str] = None):
@@ -330,17 +319,6 @@ class RPIRewardControl(RewardWidget):
     PyQt Signals
 
     new_lick(bool)
-
-    ...
-    Methods
-
-    reset_licks()
-    update_post_delay(post_delay)
-    toggle_led(on)
-    toggle_valve(open_valve)
-    play_tone(freq, volume, dur)
-    trigger_reward(amount, force, enqueue)
-    
     """
 
     new_lick = pyqtSignal(bool, name = "newLick")

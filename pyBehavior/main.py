@@ -101,9 +101,9 @@ class NewSetupDialog(QDialog):
 
 
 class Settings(QMainWindow):
-    def __init__(self, setup_dir):
+    def __init__(self, root_dir):
         super(Settings, self).__init__()
-        self.setup_dir = setup_dir
+        self.root_dir = root_dir
 
         # create layout elements
         self.layout = QVBoxLayout()
@@ -111,7 +111,7 @@ class Settings(QMainWindow):
 
         # create a drop down menu of available mappings
         available_mappings = []
-        for i in Path(setup_dir).iterdir():
+        for i in Path(root_dir).iterdir():
             if i.is_dir():
                 if 'port_map.csv' in [j.name for j in i.iterdir()]:
                     available_mappings.append(i.stem)
@@ -177,7 +177,7 @@ class Settings(QMainWindow):
 
     @property
     def map_file(self):
-        return os.path.join(self.setup_dir, self.map_file_select.currentText(),'port_map.csv')
+        return os.path.join(self.root_dir, self.map_file_select.currentText(),'port_map.csv')
     
     def load_map(self):
         """
@@ -270,7 +270,7 @@ class Settings(QMainWindow):
         dialog.exec_()
 
         if dialog.fname is not None:
-            setup_path = os.path.join(self.setup_dir, dialog.fname)
+            setup_path = os.path.join(self.root_dir, dialog.fname)
             os.mkdir(setup_path)
             starter_code = f"""
 from pyBehavior.gui import *
@@ -343,10 +343,10 @@ class {dialog.fname}(SetupGUI):
         self.mapping.drop(index = port, inplace=True)
 
 class SetupSelectDialog(QDialog):
-    def __init__(self, setup_dir):
+    def __init__(self, root_dir):
         super(SetupSelectDialog, self).__init__()
         setups = []
-        for x in Path(setup_dir).iterdir():
+        for x in Path(root_dir).iterdir():
             if x.is_dir():
                 if 'gui.py' in [j.name for j in x.iterdir()]:
                     setups.append(x.name)
@@ -366,14 +366,14 @@ class SetupSelectDialog(QDialog):
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, setup_dir):
+    def __init__(self, root_dir):
         super(MainWindow, self).__init__()
-        self.setup_dir = setup_dir
-        sys.path.append(setup_dir)
+        self.root_dir = root_dir
+        sys.path.append(root_dir)
         # create settings button
         self.setWindowTitle("My App")
         self.settings_btn = QPushButton("Edit Mappings")
-        self.settings_dialog = Settings(self.setup_dir) # instantiate settings dialog window
+        self.settings_dialog = Settings(self.root_dir) # instantiate settings dialog window
         self.settings_btn.clicked.connect(self.open_settings_dialog)
 
 
@@ -388,12 +388,13 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
 
         self.setCentralWidget(container)
+        self.setWindowTitle('pyBehavior')
 
     def open_settings_dialog(self):
         self.settings_dialog.show()
 
     def open_setup_dialog(self):
-        dialog = SetupSelectDialog(self.setup_dir)
+        dialog = SetupSelectDialog(self.root_dir)
         res = dialog.exec_()
         if res:
             setup = dialog.setup_select.currentItem().text()
@@ -403,16 +404,27 @@ class MainWindow(QMainWindow):
             self.setup_GUI = setup_GUI()
             self.setup_GUI.show()
 
-
-if __name__ == '__main__':
+def main():
     app = QApplication([])
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('setup_dir')
+    parser.add_argument('-r', '--root_dir', default=None)
     args = parser.parse_args()
 
-    window = MainWindow(args.setup_dir)
+    if args.root_dir is None:
+        try:
+            with open(os.path.expanduser(os.path.join('~', '.pyBehavior_path')), 'r') as f:
+                path = f.readline().strip()
+        except:
+            raise ValueError('No root_dir provided and no default path specified at ~/.pyBehavior_path')
+    else:
+        path = args.root_dir
+    
+    assert os.path.exists(path), f"root_dir path '{path}' does not exist"
+    window = MainWindow(path)
     window.show()
 
     app.exec()
+
+if __name__ == '__main__': main()

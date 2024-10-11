@@ -9,6 +9,7 @@ setup(
     packages = find_packages(),
     scripts = ['pyBehavior/main.py'],
     package_data = {"": ["*.csv", "*.mat"]},
+    entry_points = {'console_scripts': ['pyBehavior = pyBehavior.main:main']},
     install_requires = [
         'numpy',
         'pyyaml',

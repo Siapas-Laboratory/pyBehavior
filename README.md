@@ -29,10 +29,16 @@ python -m pip install '.[ni]'
 On a new device you will need to start by creating a new root setup directory which will store all GUI code and protocols for any setups you will be interfacing with on this device. This directory should be empty at first as the GUI provides tools that should be used to create new sub-directories for individual setups. To get started with creating such a sub-directory start the GUI as follows after activating the appropriate conda environment:
 
 ```
-python -m pyBehavior.main --setup_dir /path/to/root/setup/dir
+pyBehavior --root_dir /path/to/root/dir
 ```
 
- From here select `Edit Mappings` and click the `create` button at the top of the new window. This will open a dialog where you can enter information about the setup.
+You may also configure this directory as the default directory for a device by creating a file called `.pyBehavior_path` in your root directory and putting the path to the setup directory inside. pyBehavior will check for such a file if no root_dir is specified and use the path saved in this file as the root_dir. In this regime you may launch the GUI by simply running:
+
+```
+pyBehavior
+```
+
+From here select `Edit Mappings` and click the `create` button at the top of the new window. This will open a dialog where you can enter information about the setup.
 
  ![alt text](docs/new_setup.jpg "new setup")
 
@@ -258,3 +264,32 @@ class lick_for_reward(Protocol):
 
 ```
 
+## Additional Features
+
+Some additional features which some may find useful are listed below
+
+### Loggable LineEdit Widgets
+Sometimes it is useful to provide a GUI interface for protocols to keep track of task variables and allow users to set and update parameters of the task on the fly. It's often useful in these scenarios to log whenever changes are made to such task parameters on the fly. As such we provide the `LoggableLineEdit` as an easy drop-in solution. You may use this as if it were a `QLineEdit` anywhere you'd like and the widget handles logging. It can be imported from `pyBehavior.gui` and takes the following arguments:
+
+```
+LoggableLineEdit(name, gui:SetupGUI, event_line:str = None, raise_event_line:bool = True, *args, **kwargs)
+```
+where name is an identifier for the widget, gui is a reference to the SetupGUI that can be used for logging, event_line is an optional event_line to raise when calling the log method of the gui, and raise_event_line is whether or not to raise an event line when logging. `*args` and `**kwargs` simply refers to any additional arguments you might want to pass to the QLineEdit init method.
+
+
+### RatBerryPi Pump Configs
+This widget provides a read-out of a specified ratBerryPi pump's current position and controls for the pump. An equivalent widget exists for both local and remote ratBerryPis. It can be imported from `pyBehavior.interfaces.rpi.local` if running locally and `pyBehavior.interfaces.rpi.remote` if running remotely. It takes the following arguments:
+
+
+* Local:
+```
+PumpConfig(interface:RewardInterface, pump:str, parent, modules:typing.List[str] = None)
+```
+
+* Remote
+```
+PumpConfig(client:Client, pump:str, parent, modules:typing.List[str] = None)
+```
+
+
+In both cases, modules is an optional list of a subset of modules attached to this pump that the widget should know about. When using the 'Fill Lines' button only these lines will be filled.
