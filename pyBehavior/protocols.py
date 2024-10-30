@@ -40,8 +40,15 @@ class Protocol(StateMachine, metaclass = ProtocolMeta):
         assert self._has_timeout, "this protocol is missing a timeout action. cannot use the start_countdown method"
         def countdown():
             start = datetime.now()
-            while ((datetime.now() - start).total_seconds() < timeout) and self._in_timeout:
+            offset = 0
+            elapsed = 0
+            while (elapsed < timeout) and self._in_timeout:
                 time.sleep(0.1)
+                if self.parent._paused:
+                    offset = elapsed
+                    start = datetime.now()
+                else:
+                    elapsed = offset + (datetime.now() - start).total_seconds()
             if self._in_timeout:
                 self._in_timeout = False
                 self._timeout_event.set()

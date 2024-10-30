@@ -133,6 +133,13 @@ class SetupGUI(QMainWindow):
         self._running = False
         self._start_btn.clicked.connect(self._start_protocol)
 
+        # create a start button for starting a protocol
+        self._pause_btn = QPushButton("pause")
+        self._pause_btn.setCheckable(True)
+        self._pause_btn.setEnabled(False)
+        self._paused = False
+        self._pause_btn.clicked.connect(self._pause_protocol)
+
         # stop button for stopping a protocol
         self._stop_btn = QPushButton("stop")
         self._stop_btn.setEnabled(False)
@@ -141,6 +148,7 @@ class SetupGUI(QMainWindow):
         # add elements to the layout
         menu_layout.addWidget(self._prot_select)
         menu_layout.addWidget(self._start_btn)
+        menu_layout.addWidget(self._pause_btn)
         menu_layout.addWidget(self._stop_btn)
         self.layout.addLayout(menu_layout)
         container.setLayout(self.layout)
@@ -265,6 +273,7 @@ class SetupGUI(QMainWindow):
 
         # update gui element accessibility
         self._start_btn.setEnabled(False)
+        self._pause_btn.setEnabled(True)
         self._stop_btn.setEnabled(True)
         self._prot_select.setEnabled(False)
         self.log("starting protocol")
@@ -296,6 +305,17 @@ class SetupGUI(QMainWindow):
         self._start_btn.toggle()
         self._prot_select.setEnabled(True)
         self._stop_btn.setEnabled(False)
+        self._paused = False
+        self._pause_btn.setChecked(False)
+        self._pause_btn.setEnabled(False)
+
+    def _pause_protocol(self) -> None:
+        """
+        pause the protocol
+        """
+        self._paused = self._pause_btn.isChecked()
+        self.log("paused protocol")
+
 
     def _change_protocol(self) -> None:
         """
@@ -311,7 +331,7 @@ class SetupGUI(QMainWindow):
     def _template_state_machine_input_handler(self, data, formatter:typing.Callable, before:typing.Callable, event_line:str):
         if before is not None:
             before(data)
-        if self._running:
+        if self._running and not self._paused:
             curr_state = self._state_machine.current_state.id
             self._state_machine.handle_input(formatter(data))
             if self._state_machine.current_state.id != curr_state:
