@@ -1,7 +1,7 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, 
-                             QComboBox, QFileDialog, QLineEdit, QGroupBox)
+                             QComboBox, QFileDialog, QLineEdit, QGroupBox, QLabel)
 from pathlib import Path
 from datetime import datetime
 import importlib
@@ -486,3 +486,20 @@ class LoggableLineEdit(QLineEdit):
     def log_change(self):
 
         self.gui.log(f"{self.name} updated to {self.text()}", event_line=self.event_line, raise_event_line=self.raise_event_line)
+
+
+
+class Parameter(QWidget):
+
+    def __init__(self, disp_name):
+        super().__init__()
+
+        layout = QHBoxLayout()
+        layout.addWidget(QLabel(disp_name))
+        self.le = QLineEdit()
+        self.le.setEnabled(False)
+        layout.addWidget(self.le)
+        self.setLayout(self.le)
+
+    def setText(self, *args, **kwargs):
+        self.le.setText(*args, **kwargs)
