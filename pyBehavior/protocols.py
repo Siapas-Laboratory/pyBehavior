@@ -33,7 +33,9 @@ class Protocol(StateMachine, metaclass = ProtocolMeta):
         while self.parent._running:
             if self._timeout_event.is_set():
                 self._timeout_event.clear()
+                self.parent.log('coundown finished')
                 self.timeout()
+                self.parent.log(f"STATE MACHINE ENTERED STATE: {self.current_state.id}")
             time.sleep(.5)
 
     def start_countdown(self, timeout):
@@ -56,6 +58,7 @@ class Protocol(StateMachine, metaclass = ProtocolMeta):
         self.stop_countdown()
         self._in_timeout = True
         self._timeout_thread = threading.Thread(target = countdown)
+        self.parent.log(f"starting {timeout:.3f}s countdown")
         self._timeout_thread.start()
 
     def stop_countdown(self):
