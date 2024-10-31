@@ -499,7 +499,7 @@ class Parameter(QWidget):
         self.le = QLineEdit()
         self.le.setEnabled(False)
         layout.addWidget(self.le)
-        self.setLayout(self.le)
+        self.setLayout(layout)
 
     def setText(self, *args, **kwargs):
         self.le.setText(*args, **kwargs)
