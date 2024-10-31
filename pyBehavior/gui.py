@@ -503,3 +503,6 @@ class Parameter(QWidget):
 
     def setText(self, *args, **kwargs):
         self.le.setText(*args, **kwargs)
+
+    def text(self, *args, **kwargs):
+        return self.le.text(*args, **kwargs)
