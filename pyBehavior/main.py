@@ -415,7 +415,7 @@ def main():
     if args.root_dir is None:
         try:
             with open(os.path.expanduser(os.path.join('~', '.pyBehavior_path')), 'r') as f:
-                path = f.readline().strip()
+                path = os.path.expanduser(f.readline().strip())
         except:
             raise ValueError('No root_dir provided and no default path specified at ~/.pyBehavior_path')
     else:
