@@ -358,6 +358,31 @@ class RPIRewardControl(RewardWidget):
         vlayout.addLayout(lick_layout)
         self.interface.modules[module].lickometer.lick_notifier.new_lick.connect(self._update_licks)
 
+        # cummulative reward amount
+        amt_widget = QGroupBox()
+        amt_layout = QHBoxLayout()
+        _amt_layout = QVBoxLayout()
+        vol_layout = QHBoxLayout()
+        vol_layout.addWidget(QLabel("Volume Dispensed [mL]:"))
+        self.amt_disp = QLineEdit()
+        self.amt_disp.setText(f"{0}")
+        self.amt_disp.setEnabled(False)
+        vol_layout.addWidget(self.amt_disp)
+        _amt_layout.addLayout(vol_layout)
+        npulse_layout = QHBoxLayout()
+        npulse_layout.addWidget(QLabel("# Pulses:"))
+        self.npulse = QLineEdit()
+        self.npulse.setText(f"{0}")
+        self.npulse.setEnabled(False)
+        npulse_layout.addWidget(self.npulse)
+        _amt_layout.addLayout(npulse_layout)
+        amt_layout.addLayout(_amt_layout)
+        amt_reset_btn = QPushButton("Reset")
+        amt_reset_btn.clicked.connect(lambda x: self.reset_amount_dispensed())
+        amt_layout.addWidget(amt_reset_btn)
+        amt_widget.setLayout(amt_layout)
+        vlayout.addWidget(amt_widget)
+
         hlayout = QHBoxLayout()
         tabs = QTabWidget()
         reward_tab = QWidget()
@@ -476,6 +501,10 @@ class RPIRewardControl(RewardWidget):
         gb.setLayout(hlayout)
         vlayout.addWidget(gb)
         self.setLayout(vlayout)
+
+    def reset_amount_dispensed(self):
+        self.amt_disp.setText(f"{0}")
+        self.npulse.setText(f"{0}")
 
     def _update_licks(self) -> None:
         self.lick_count.setText(f"{self.interface.modules[self.module].lickometer.licks}")
@@ -599,3 +628,5 @@ class RPIRewardControl(RewardWidget):
             force = force,
             enqueue = enqueue
         )
+        self.amt_disp.setText(f"{float(self.amt_disp.text()) + amount}")
+        self.npulse.setText(f"{float(self.npulse.text()) + 1}")
