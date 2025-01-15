@@ -1,5 +1,6 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtGui import  QDoubleValidator
 from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, 
                              QComboBox, QFileDialog, QLineEdit, QGroupBox, QLabel)
 from pathlib import Path
@@ -491,15 +492,36 @@ class LoggableLineEdit(QLineEdit):
 
 class Parameter(QWidget):
 
-    def __init__(self, disp_name):
+    def __init__(self, disp_name, default = None, is_num = False, validator = None):
         super().__init__()
 
+        self.is_num = is_num
         layout = QHBoxLayout()
         layout.addWidget(QLabel(disp_name))
         self.le = QLineEdit()
         self.le.setEnabled(False)
         layout.addWidget(self.le)
         self.setLayout(layout)
+        if self.is_num and validator is None:
+            self.setValidator(QDoubleValidator())
+        if validator is not None:
+            self.setValidator(validator)
+        if default is not None:
+            self.setText(f"{default}")
+
+    @property
+    def val(self):
+        if self.is_num:
+            return float(self.text())
+        else:
+            return self.text()
+
+    @val.setter
+    def val(self, val):
+        self.setText(f"{val}")
+
+    def setValidator(self, *args, **kwargs):
+        self.le.setValidator(*args, **kwargs)
 
     def setText(self, *args, **kwargs):
         self.le.setText(*args, **kwargs)
