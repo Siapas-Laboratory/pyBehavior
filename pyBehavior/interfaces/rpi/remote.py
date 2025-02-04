@@ -51,7 +51,7 @@ class PumpConfig(QGroupBox):
         syringe_label = QLabel("Syringe Type:")
         self.syringe_select = QComboBox()
         self.syringe_select.addItems(["BD1mL", "BD3mL", "BD5mL", "BD10mL", "BD30mL"])
-        cur_syringe = self.client.get(f"pumps['{self.pump}'].syringe.syringeType")
+        cur_syringe = self.client.get(f"pumps['{self.pump}'].syringe.syringeType", channel = 'run')
         self.syringe_select.setCurrentIndex(self.syringe_select.findText(cur_syringe))
         self.syringe_select.currentIndexChanged.connect(lambda x: self.change_syringe(None))
         syringe_layout.addWidget(syringe_label)
@@ -63,7 +63,7 @@ class PumpConfig(QGroupBox):
         step_type_label = QLabel("Microstep Type: ")
         self.step_type_select = QComboBox()
         self.step_type_select.addItems(['Full', 'Half', '1/4', '1/8', '1/16', '1/32'])
-        cur_microstep = self.client.get(f"pumps['{self.pump}'].stepType")
+        cur_microstep = self.client.get(f"pumps['{self.pump}'].stepType", channel = 'run')
         self.step_type_select.setCurrentIndex(self.step_type_select.findText(cur_microstep))
         self.step_type_select.currentIndexChanged.connect(lambda x: self.set_microstep_type(None))
         step_type_layout.addWidget(step_type_label)
@@ -75,7 +75,7 @@ class PumpConfig(QGroupBox):
         step_speed_label = QLabel("Microstep Rate (steps/s): ")
         self.step_speed = QLineEdit()
         self.step_speed.setValidator(QDoubleValidator())
-        cur_speed =self.client.get(f"pumps['{self.pump}'].speed")
+        cur_speed =self.client.get(f"pumps['{self.pump}'].speed", channel = 'run')
         self.step_speed.setText(f"{cur_speed}")
         self.step_speed.editingFinished.connect(self.set_step_speed)
         step_speed_layout.addWidget(step_speed_label)
@@ -87,7 +87,7 @@ class PumpConfig(QGroupBox):
         flow_rate_label = QLabel("Flow Rate (mL/s): ")
         self.flow_rate = QLineEdit()
         self.flow_rate.setValidator(QDoubleValidator())
-        cur_flow_rate =self.client.get(f"pumps['{self.pump}'].flow_rate")
+        cur_flow_rate =self.client.get(f"pumps['{self.pump}'].flow_rate", channel = 'run')
         self.flow_rate.setText(f"{cur_flow_rate}")
         self.flow_rate.editingFinished.connect(self.set_flow_rate)
         flow_rate_layout.addWidget(flow_rate_label)
@@ -98,12 +98,12 @@ class PumpConfig(QGroupBox):
         auto_fill_layout = QHBoxLayout()
         auto_fill_thresh_label = QLabel("Auto Fill Threshold Fraction: ")
         self.auto_fill_thresh = QLineEdit()
-        self.auto_fill_thresh.setText(f"{self.client.get('auto_fill_frac_thresh')}")
+        self.auto_fill_thresh.setText(f"{self.client.get('auto_fill_frac_thresh', channel = 'run')}")
         self.auto_fill_thresh.setValidator(QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation))
         self.auto_fill_thresh.editingFinished.connect(self.set_auto_fill_frac_thresh)
         self.auto_fill_btn = QPushButton("Toggle Auto-Fill")
         self.auto_fill_btn.setCheckable(True)
-        init_state = bool(self.client.get(f"auto_fill"))
+        init_state = bool(self.client.get(f"auto_fill", channel = 'run'))
         self.auto_fill_btn.setChecked(init_state)
         self.auto_fill_btn.clicked.connect(self.toggle_auto_fill)
         auto_fill_layout.addWidget(auto_fill_thresh_label)
@@ -212,10 +212,10 @@ class PumpConfig(QGroupBox):
                 the opposite of the current state
         """
 
-        on = on if on is not None else not bool(self.client.get(f"auto_fill"))
+        on = on if on is not None else not bool(self.client.get(f"auto_fill", channel = 'run'))
         self.client.run_command('toggle_auto_fill', {'on': on}, channel = 'run')
         time.sleep(.1)
-        self.auto_fill_btn.setChecked(bool(self.client.get(f"auto_fill")))
+        self.auto_fill_btn.setChecked(bool(self.client.get(f"auto_fill", channel = 'run')))
 
     def set_auto_fill_frac_thresh(self, value:float = None) -> None:
         """
@@ -383,7 +383,7 @@ class RPIRewardControl(RewardWidget):
         self.setTitle(self.module)
 
         # pump name
-        pump_name = self.client.get(f"modules['{self.module}'].pump.name")
+        pump_name = self.client.get(f"modules['{self.module}'].pump.name", channel = 'run')
         playout = QHBoxLayout()
         playout.addWidget(QLabel(f"Pump: "))
         pump_le = QLineEdit()
@@ -394,7 +394,7 @@ class RPIRewardControl(RewardWidget):
 
         # widget to display and reset lick count
         lick_layout = QHBoxLayout()
-        self.lick_count_n = int(self.client.get(f"modules['{self.module}'].lickometer.licks"))
+        self.lick_count_n = int(self.client.get(f"modules['{self.module}'].lickometer.licks", channel = 'run'))
         lick_layout.addWidget(QLabel(f"Lick Count: "))
         self.lick_count = QLineEdit()
         self.lick_count.setText(f"{self.lick_count_n}")
@@ -444,7 +444,7 @@ class RPIRewardControl(RewardWidget):
         post_delay_layout.addWidget(QLabel("Post Reward Delay (s): "))
         self.post_delay = QLineEdit()
         self.post_delay.setValidator(QDoubleValidator())
-        self.post_delay.setText(str(self.client.get(f"modules['{self.module}'].post_delay")))
+        self.post_delay.setText(str(self.client.get(f"modules['{self.module}'].post_delay", channel = 'run')))
         self.post_delay.editingFinished.connect(self.update_post_delay)
         post_delay_layout.addWidget(self.post_delay)
         rlayout.addLayout(post_delay_layout)
@@ -533,7 +533,7 @@ class RPIRewardControl(RewardWidget):
         self.led_btn = QPushButton("Toggle LED")
         self.led_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.led_btn.setCheckable(True)
-        init_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
+        init_state = bool(self.client.get(f"modules['{self.module}'].LED.on", channel = 'run'))
         self.led_btn.setChecked(init_state)
         self.led_btn.clicked.connect(self.toggle_led)
         clayout.addWidget(self.led_btn)
@@ -542,7 +542,7 @@ class RPIRewardControl(RewardWidget):
         self.valve_btn = QPushButton("Toggle Valve")
         self.valve_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.valve_btn.setCheckable(True)
-        init_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+        init_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open", channel = 'run'))
         self.valve_btn.setChecked(init_state)
         self.valve_btn.clicked.connect(self.toggle_valve)
         clayout.addWidget(self.valve_btn)
@@ -634,14 +634,14 @@ class RPIRewardControl(RewardWidget):
         """
 
         if on is None:
-            led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
+            led_state = bool(self.client.get(f"modules['{self.module}'].LED.on", channel = 'run'))
             on = not led_state
         
         args = {'module': self.module,
                 'on': on}
         status = self.client.run_command('toggle_LED', args, channel = 'run')
         if not status=='SUCCESS\n': print('error status', status)
-        led_state = bool(self.client.get(f"modules['{self.module}'].LED.on"))
+        led_state = bool(self.client.get(f"modules['{self.module}'].LED.on", channel = 'run'))
         self.led_btn.setChecked(led_state)
 
     def toggle_valve(self, open_valve:bool = None):
@@ -656,13 +656,13 @@ class RPIRewardControl(RewardWidget):
         """
 
         if open_valve is None:
-            valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+            valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open", channel = 'run'))
             open_valve = not valve_state
         args = {'module': self.module,
                 'open_valve': open_valve}
         status = self.client.run_command('toggle_valve', args, channel = 'run')
         if not status=='SUCCESS\n': print('error status', status)
-        valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open"))
+        valve_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open", channel = 'run'))
         self.valve_btn.setChecked(valve_state)
         
     def trigger_reward(self, amount:float, force:bool = True, enqueue:bool = False) -> None:
