@@ -163,7 +163,11 @@ class PumpConfig(QGroupBox):
         """
         set pump position to 0
         """
-        self.interface.calibrate(self.pump)
+        try:
+            self.interface.calibrate(self.pump)
+        except BaseException as e:
+            pass
+            
 
     def fill_lines(self, modules:typing.List[str] = None, fill_all:bool = False):
         """
@@ -185,7 +189,10 @@ class PumpConfig(QGroupBox):
         elif modules is None:
             modules = self.modules
 
-        self.interface.fill_lines(modules)
+        try:
+            self.interface.fill_lines(modules)
+        except BaseException as e:
+            pass
 
     def empty_lines(self):
         """
@@ -197,8 +204,10 @@ class PumpConfig(QGroupBox):
         TODO: neeed to handle the freezing more gracefully
         maybe a little loading window?
         """
-
-        self.interface.empty_lines()
+        try:
+            self.interface.empty_lines()
+        except BaseException as e:
+            pass
 
     def toggle_auto_fill(self, on:bool = None) -> None:
         """
@@ -213,7 +222,10 @@ class PumpConfig(QGroupBox):
         """
 
         on = on if on is not None else not self.interface.auto_fill
-        self.interface.toggle_auto_fill(on = on)
+        try:
+            self.interface.toggle_auto_fill(on = on)
+        except BaseException as e:
+            pass
         time.sleep(.1)
         self.auto_fill_btn.setChecked(self.interface.auto_fill)
 
@@ -228,7 +240,10 @@ class PumpConfig(QGroupBox):
         """
         
         value = value if value is not None else float(self.auto_fill_thresh.text())
-        self.interface.set_auto_fill_frac_thresh(value)
+        try:
+            self.interface.set_auto_fill_frac_thresh(value)
+        except BaseException as e:
+            pass
         self.auto_fill_thresh.setText(f"{value}")
 
     def set_microstep_type(self, step_type:str = None) -> None:
@@ -246,8 +261,11 @@ class PumpConfig(QGroupBox):
         idx = self.step_type_select.findText(step_type)
         if idx == -1:
             raise ValueError('Invalid syringe type specified')
-        self.interface.set_microstep_type(pump=self.pump, 
-                                          stepType=step_type)
+        try:
+            self.interface.set_microstep_type(pump=self.pump, 
+                                            stepType=step_type)
+        except BaseException as e:
+            pass
         self.step_type_select.setCurrentIndex(idx)
         flow_rate = self.interface.pumps[self.pump].flow_rate
         self.flow_rate.setText(f"{flow_rate}")
@@ -257,8 +275,11 @@ class PumpConfig(QGroupBox):
         set the flow rate of the pump
         """
         speed = speed if speed is not None else float(self.step_speed.text())
-        self.interface.set_step_speed(pump=self.pump,
-                                      speed=speed)
+        try:
+            self.interface.set_step_speed(pump=self.pump,
+                                        speed=speed)
+        except BaseException as e:
+            pass
         self.step_speed.setText(f"{speed}")
         flow_rate = self.interface.pumps[self.pump].flow_rate
         self.flow_rate.setText(f"{flow_rate}")
@@ -269,8 +290,11 @@ class PumpConfig(QGroupBox):
         set the flow rate of the pump
         """
         flow_rate = flow_rate if flow_rate is not None else float(self.flow_rate.text())     
-        self.interface.set_flow_rate(pump=self.pump,
-                                     flow_rate=flow_rate)
+        try:
+            self.interface.set_flow_rate(pump=self.pump,
+                                        flow_rate=flow_rate)
+        except BaseException as e:
+            pass
         flow_rate = self.interface.pumps[self.pump].flow_rate
         self.flow_rate.setText(f"{flow_rate}")
         speed = self.interface.pumps[self.pump].speed
@@ -289,8 +313,12 @@ class PumpConfig(QGroupBox):
         idx = self.syringe_select.findText(syringe_type)
         if idx == -1:
             raise ValueError('Invalid syringe type specified')
-        self.interface.change_syringe(pump = self.pump, 
-                                      syringeType = syringe_type)
+        try:
+            self.interface.change_syringe(pump = self.pump, 
+                                        syringeType = syringe_type)
+        except BaseException as e:
+            pass
+
         self.syringe_select.setCurrentIndex(idx)
         flow_rate = self.interface.pumps[self.pump].flow_rate
         self.flow_rate.setText(f"{flow_rate}")
@@ -307,7 +335,10 @@ class PumpConfig(QGroupBox):
         """
 
         amount = amount if amount is not None else float(self.push_amt.text())
-        self.interface.push_to_reservoir(pump = self.pump, amount = amount)
+        try:
+            self.interface.push_to_reservoir(pump = self.pump, amount = amount)
+        except BaseException as e:
+            pass
 
         
 
@@ -524,8 +555,10 @@ class RPIRewardControl(RewardWidget):
         """
         reset the lick count for this module
         """
-
-        self.interface.reset_licks(self.module)
+        try:
+            self.interface.reset_licks(self.module)
+        except BaseException as e:
+            pass
         self.lick_count.setText(f"Lick Count: {self.interface.modules[self.module].lickometer.licks}")
     
     def update_post_delay(self, post_delay:float = None) -> None:
@@ -538,8 +571,11 @@ class RPIRewardControl(RewardWidget):
                 new post pump actuation delay in seconds
         """
         post_delay = post_delay if post_delay is not None else float(self.post_delay.text())
-        self.interface.update_post_delay(module = self.module, 
-                                         post_delay = float(self.post_delay.text()))
+        try:
+            self.interface.update_post_delay(module = self.module, 
+                                            post_delay = float(self.post_delay.text()))
+        except BaseException as e:
+            pass
         self.post_delay.setText(f"{post_delay}")
 
     def play_tone(self, freq:float = None, volume:float = None, dur:float = None) -> None:
@@ -562,12 +598,15 @@ class RPIRewardControl(RewardWidget):
         volume = volume if volume is not None else float(self.tone_vol.text())
         dur = dur if dur is not None else float(self.tone_dur.text())
 
-        self.interface.play_tone(
-            module = self.module,
-            freq = freq,
-            volume = volume,
-            dur = dur
-        )
+        try:
+            self.interface.play_tone(
+                module = self.module,
+                freq = freq,
+                volume = volume,
+                dur = dur
+            )
+        except BaseException as e:
+            pass
 
     def toggle_led(self, on:bool = None) -> None:
         """
@@ -583,7 +622,10 @@ class RPIRewardControl(RewardWidget):
         if on is None:
             led_state = self.interface.modules[self.module].LED.on
             on = not led_state
-        self.interface.toggle_LED(module = self.module, on = on)
+        try:
+            self.interface.toggle_LED(module = self.module, on = on)
+        except BaseException as e:
+            pass
         self.led_btn.setChecked(self.interface.modules[self.module].LED.on)
 
     def toggle_valve(self, open_valve:bool = None):
@@ -600,7 +642,10 @@ class RPIRewardControl(RewardWidget):
         if open_valve is None:
             valve_state = self.interface.modules[self.module].valve.is_open
             open_valve = not valve_state
-        self.interface.toggle_valve(module = self.module, open_valve = open_valve)
+        try:
+            self.interface.toggle_valve(module = self.module, open_valve = open_valve)
+        except BaseException as e:
+            pass
         self.valve_btn.setChecked(self.interface.modules[self.module].valve.is_open)
 
 
@@ -622,11 +667,14 @@ class RPIRewardControl(RewardWidget):
                 delivery until after the currently running task is finished
         """
 
-        self.interface.trigger_reward(
-            module = self.module,
-            amount = amount,
-            force = force,
-            enqueue = enqueue
-        )
+        try:
+            self.interface.trigger_reward(
+                module = self.module,
+                amount = amount,
+                force = force,
+                enqueue = enqueue
+            )
+        except BaseException as e:
+            pass
         self.amt_disp.setText(f"{float(self.amt_disp.text()) + amount}")
         self.npulse.setText(f"{float(self.npulse.text()) + 1}")

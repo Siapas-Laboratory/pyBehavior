@@ -362,7 +362,7 @@ class SetupGUI(QMainWindow):
                 amount of reward in mL
         """
 
-        self.log(f"triggering {amount:.2f} mL reward on module {module}", event_line=event_line)
+        self.log(f"triggering {amount:.5f} mL reward on module {module}", event_line=event_line)
         self.reward_modules[module].trigger_reward(amount, **kwargs)
 
     def log(self, event:str, event_line:str = None, raise_event_line:bool = True):
@@ -492,14 +492,23 @@ class LoggableLineEdit(QLineEdit):
 
 class Parameter(QWidget):
 
-    def __init__(self, disp_name, default = None, is_num = False, validator = None):
+    def __init__(self, name, disp_name=None, default = None, is_num = False, validator = None, 
+                 settable = False, log_changes = True, logger_args = {}, logger_parent = None):
         super().__init__()
 
         self.is_num = is_num
         layout = QHBoxLayout()
+        disp_name = name if disp_name is None else disp_name
         layout.addWidget(QLabel(disp_name))
-        self.le = QLineEdit()
-        self.le.setEnabled(False)
+        if settable:
+            if log_changes:
+                assert logger_parent is not None, 'must specify logger_parent if settable=True and log_changes=True'
+                self.le = LoggableLineEdit(name, logger_parent, **logger_args)
+            else:
+                self.le = QLineEdit()
+        else:
+            self.le = QLineEdit()
+            self.le.setEnabled(False)
         layout.addWidget(self.le)
         self.setLayout(layout)
         if self.is_num and validator is None:
@@ -508,6 +517,8 @@ class Parameter(QWidget):
             self.setValidator(validator)
         if default is not None:
             self.setText(f"{default}")
+            if settable and log_changes:
+                self.le.log_change()
 
     @property
     def val(self):
