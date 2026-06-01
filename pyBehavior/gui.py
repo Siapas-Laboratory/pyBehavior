@@ -1,8 +1,9 @@
 import pandas as pd
-from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtGui import  QDoubleValidator
-from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, 
-                             QComboBox, QFileDialog, QLineEdit, QGroupBox, QLabel)
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
+from PyQt5.QtGui import QDoubleValidator, QFont
+from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget,
+                             QComboBox, QFileDialog, QLineEdit, QGroupBox, QLabel,
+                             QStatusBar, QFrame, QSizePolicy)
 from pathlib import Path
 from datetime import datetime
 import importlib
@@ -11,6 +12,7 @@ import os
 from abc import ABCMeta, abstractmethod
 from collections import UserDict
 from pyBehavior.protocols import *
+from pyBehavior import styles
 import logging
 import paramiko
 from scp import SCPClient
@@ -90,6 +92,7 @@ class SetupGUI(QMainWindow):
     def __init__(self, loc):
         super(SetupGUI, self).__init__()
         self.loc = Path(loc)
+        self.setWindowTitle(f"pyBehavior — {self.loc.name}")
 
         # if there is a ni port map for this setup load it
         if os.path.exists(self.loc/'port_map.csv'):
@@ -112,71 +115,109 @@ class SetupGUI(QMainWindow):
                 self._has_local_rpi = True
             else:
                 from ratBerryPi.remote.client import Client
-                self.client = Client(self.rpi_config['HOST'], 
-                                    self.rpi_config['PORT'])
+                self.client = Client(self.rpi_config['HOST'],
+                                     self.rpi_config['PORT'])
                 self.client.new_channel("run")
                 self._has_remote_rpi = True
 
+        # ── Top control bar ────────────────────────────────────────────
         container = QWidget()
         self.layout = QVBoxLayout()
-        menu_layout = QHBoxLayout()
+        self.layout.setSpacing(8)
+        self.layout.setContentsMargins(10, 10, 10, 10)
 
-        # load all protocols into the dropdown menu
-        protocols = [ i.stem for i in (self.loc/'protocols').iterdir() if i.is_file() and i.name[-3:] == '.py' ]
+        # Header label
+        header = QLabel(self.loc.name.upper())
+        header.setStyleSheet(
+            f"font-size: 14px; font-weight: bold; color: {styles.ACCENT}; "
+            f"letter-spacing: 2px; padding: 2px 0 6px 2px;"
+        )
+        self.layout.addWidget(header)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet(f"color: {styles.BORDER_SUBTLE};")
+        self.layout.addWidget(sep)
+
+        # Protocol row
+        prot_row = QHBoxLayout()
+        prot_row.setSpacing(6)
+
+        prot_label = QLabel("Protocol")
+        prot_label.setFixedWidth(54)
+        prot_row.addWidget(prot_label)
+
+        protocols = [i.stem for i in (self.loc/'protocols').iterdir()
+                     if i.is_file() and i.name.endswith('.py')]
         self._prot_select = QComboBox()
-        self._prot_select.addItems([""] + protocols)
+        self._prot_select.addItems(["— select —"] + protocols)
+        self._prot_select.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._prot_select.currentIndexChanged.connect(self._change_protocol)
+        prot_row.addWidget(self._prot_select)
+        self.layout.addLayout(prot_row)
 
-        # create a start button for starting a protocol
-        self._start_btn = QPushButton("start")
+        # Transport buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+
+        self._start_btn = QPushButton("▶  Start")
+        self._start_btn.setObjectName("start_btn")
         self._start_btn.setCheckable(True)
         self._start_btn.setEnabled(False)
         self._running = False
         self._start_btn.clicked.connect(self._start_protocol)
 
-        # create a start button for starting a protocol
-        self._pause_btn = QPushButton("pause")
+        self._pause_btn = QPushButton("⏸  Pause")
+        self._pause_btn.setObjectName("pause_btn")
         self._pause_btn.setCheckable(True)
         self._pause_btn.setEnabled(False)
         self._paused = False
         self._pause_btn.clicked.connect(self._pause_protocol)
 
-        # stop button for stopping a protocol
-        self._stop_btn = QPushButton("stop")
+        self._stop_btn = QPushButton("■  Stop")
+        self._stop_btn.setObjectName("stop_btn")
         self._stop_btn.setEnabled(False)
         self._stop_btn.clicked.connect(self._stop_protocol)
 
-        # add elements to the layout
-        menu_layout.addWidget(self._prot_select)
-        menu_layout.addWidget(self._start_btn)
-        menu_layout.addWidget(self._pause_btn)
-        menu_layout.addWidget(self._stop_btn)
-        self.layout.addLayout(menu_layout)
+        for btn in (self._start_btn, self._pause_btn, self._stop_btn):
+            btn.setMinimumHeight(30)
+            btn_row.addWidget(btn)
+
+        self.layout.addLayout(btn_row)
+
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.HLine)
+        sep2.setStyleSheet(f"color: {styles.BORDER_SUBTLE};")
+        self.layout.addWidget(sep2)
+
         container.setLayout(self.layout)
         self.setCentralWidget(container)
 
-        # initialize the state machine as none
-        # until a protocol is selected
+        # Status bar
+        self._status_bar = QStatusBar()
+        self._status_bar.setStyleSheet(
+            f"QStatusBar {{ background: {styles.BG_PANEL}; color: {styles.TEXT_SECONDARY}; "
+            f"font-size: 11px; border-top: 1px solid {styles.BORDER_SUBTLE}; }}"
+        )
+        self.setStatusBar(self._status_bar)
+        self._status_bar.showMessage("Ready")
+
+        # initialize the state machine as none until a protocol is selected
         self._state_machine = None
 
-        # placeholder attributes for
-        # the collection of reward modules
+        # placeholder for the collection of reward modules
         self.reward_modules = ModuleDict()
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
 
-        # placeholder for file handler
         self._log_fh = None
-
-        # create handler for logging to the console
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)
-        # create formatter and add it to the handler
-        self._formatter = logging.Formatter('%(asctime)s.%(msecs)03d, %(levelname)s, %(message)s',
-                                           "%Y-%m-%d %H:%M:%S")
+        self._formatter = logging.Formatter(
+            '%(asctime)s.%(msecs)03d, %(levelname)s, %(message)s', "%Y-%m-%d %H:%M:%S"
+        )
         ch.setFormatter(self._formatter)
-        # add the handlers to the logger
         self.logger.addHandler(ch)
 
         self._eventstring_handlers = {}
@@ -238,7 +279,8 @@ class SetupGUI(QMainWindow):
         """
         name of the currently selected protocol
         """
-        return self._prot_select.currentText()
+        text = self._prot_select.currentText()
+        return "" if text == "— select —" else text
     
     
     def _start_protocol(self) -> None:
@@ -280,6 +322,9 @@ class SetupGUI(QMainWindow):
         self.log("starting protocol")
         # raise flag saying that we're running
         self._running = True
+        self._status_bar.showMessage(
+            f"● Running: {self.prot_name}  —  started {datetime.strftime(datetime.now(), '%H:%M:%S')}"
+        )
 
     def _stop_protocol(self):
         """
@@ -309,25 +354,33 @@ class SetupGUI(QMainWindow):
         self._paused = False
         self._pause_btn.setChecked(False)
         self._pause_btn.setEnabled(False)
+        self._status_bar.showMessage(f"Stopped — {datetime.strftime(datetime.now(), '%H:%M:%S')}")
 
     def _pause_protocol(self) -> None:
         """
         pause the protocol
         """
         self._paused = self._pause_btn.isChecked()
-        self.log("paused protocol")
+        if self._paused:
+            self.log("paused protocol")
+            self._status_bar.showMessage("⏸  Paused")
+        else:
+            self.log("resumed protocol")
+            self._status_bar.showMessage(f"● Running: {self.prot_name}")
 
 
     def _change_protocol(self) -> None:
         """
         callback for switching between protocols
         """
-
-        if len(self.prot_name)>0:
+        valid = len(self.prot_name) > 0 and self.prot_name != "— select —"
+        if valid:
             self._start_btn.setEnabled(True)
+            self._status_bar.showMessage(f"Protocol: {self.prot_name}")
         else:
             self._state_machine = None
             self._start_btn.setEnabled(False)
+            self._status_bar.showMessage("Ready")
     
     def _template_state_machine_input_handler(self, data, formatter:typing.Callable, before:typing.Callable, event_line:str):
         if before is not None:

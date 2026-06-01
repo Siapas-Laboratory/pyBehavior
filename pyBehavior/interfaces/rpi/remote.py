@@ -1,7 +1,6 @@
-from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtWidgets import QGroupBox, QSizePolicy, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QComboBox, QTabWidget
-from PyQt5.QtGui import  QDoubleValidator
+from PyQt5.QtGui import QDoubleValidator
 import time
 from pyBehavior.gui import RewardWidget
 import typing
@@ -360,12 +359,7 @@ class PumpConfig(QGroupBox):
 
 class RPIRewardControl(RewardWidget):
     """
-    A widget for controlling ratBerryPi reward modules remotely through a client
-
-    ...
-    PyQt Signals
-
-    new_lick(bool)
+    A widget for controlling ratBerryPi reward modules remotely through a client.
     """
 
     new_licks = pyqtSignal(int)
@@ -376,181 +370,162 @@ class RPIRewardControl(RewardWidget):
         self.module = module
         self.client = client
         self.parent = parent
-    
-        vlayout= QVBoxLayout()
 
-        # module name
         self.setTitle(self.module)
+        vlayout = QVBoxLayout()
+        vlayout.setSpacing(8)
 
-        # pump name
-        pump_name = self.client.get(f"modules['{self.module}'].pump.name", channel = 'run')
-        playout = QHBoxLayout()
-        playout.addWidget(QLabel(f"Pump: "))
-        pump_le = QLineEdit()
-        pump_le.setText(pump_name)
+        # ── Pump readout ───────────────────────────────────────────────
+        pump_row = QHBoxLayout()
+        pump_lbl = QLabel("Pump")
+        pump_lbl.setFixedWidth(40)
+        pump_name = self.client.get(f"modules['{self.module}'].pump.name", channel='run')
+        pump_le = QLineEdit(pump_name)
         pump_le.setEnabled(False)
-        playout.addWidget(pump_le)
-        vlayout.addLayout(playout)
+        pump_row.addWidget(pump_lbl)
+        pump_row.addWidget(pump_le)
+        vlayout.addLayout(pump_row)
 
-        # widget to display and reset lick count
-        lick_layout = QHBoxLayout()
-        self.lick_count_n = int(self.client.get(f"modules['{self.module}'].lickometer.licks", channel = 'run'))
-        lick_layout.addWidget(QLabel(f"Lick Count: "))
-        self.lick_count = QLineEdit()
-        self.lick_count.setText(f"{self.lick_count_n}")
+        # ── Lick counter ───────────────────────────────────────────────
+        lick_group = QGroupBox()
+        lick_group.setTitle("Lick Counter")
+        lick_vlayout = QVBoxLayout()
+        lick_vlayout.setSpacing(4)
+        self.lick_count_n = int(self.client.get(f"modules['{self.module}'].lickometer.licks", channel='run'))
+        self.lick_count = QLineEdit(f"{self.lick_count_n}")
         self.lick_count.setEnabled(False)
-        lick_layout.addWidget(self.lick_count)
-        reset_btn = QPushButton("Reset")
-        reset_btn.clicked.connect(self.reset_licks)
-        lick_layout.addWidget(reset_btn)
-        vlayout.addLayout(lick_layout)
+        self.lick_count.setAlignment(Qt.AlignCenter)
+        self.lick_count.setStyleSheet("font-size: 20px; font-weight: bold; min-height: 36px;")
+        lick_vlayout.addWidget(self.lick_count)
+        reset_lick_btn = QPushButton("Reset Lick Count")
+        reset_lick_btn.clicked.connect(self.reset_licks)
+        lick_vlayout.addWidget(reset_lick_btn)
+        lick_group.setLayout(lick_vlayout)
+        vlayout.addWidget(lick_group)
+
         self.lick_thread = RPIRewardControl.RPILickThread(self.client, self.module)
         self.lick_thread.lick_num_updated.connect(self._update_licks)
         self.lick_thread.start()
 
-        # cummulative reward amount
-        amt_widget = QGroupBox()
-        amt_layout = QHBoxLayout()
-        _amt_layout = QVBoxLayout()
-        vol_layout = QHBoxLayout()
-        vol_layout.addWidget(QLabel("Volume Dispensed [mL]:"))
-        self.amt_disp = QLineEdit()
-        self.amt_disp.setText(f"{0}")
-        self.amt_disp.setEnabled(False)
-        vol_layout.addWidget(self.amt_disp)
-        _amt_layout.addLayout(vol_layout)
-        npulse_layout = QHBoxLayout()
-        npulse_layout.addWidget(QLabel("# Pulses:"))
-        self.npulse = QLineEdit()
-        self.npulse.setText(f"{0}")
-        self.npulse.setEnabled(False)
-        npulse_layout.addWidget(self.npulse)
-        _amt_layout.addLayout(npulse_layout)
-        amt_layout.addLayout(_amt_layout)
-        amt_reset_btn = QPushButton("Reset")
-        amt_reset_btn.clicked.connect(lambda x: self.reset_amount_dispensed())
-        amt_layout.addWidget(amt_reset_btn)
-        amt_widget.setLayout(amt_layout)
-        vlayout.addWidget(amt_widget)
+        # ── Session stats ──────────────────────────────────────────────
+        stats_group = QGroupBox()
+        stats_group.setTitle("Session Stats")
+        stats_layout = QHBoxLayout()
+        stats_layout.setSpacing(8)
+        for label_text, attr in [("Volume (mL)", "amt_disp"), ("# Pulses", "npulse")]:
+            col = QVBoxLayout()
+            col_label = QLabel(label_text)
+            col_label.setAlignment(Qt.AlignCenter)
+            le = QLineEdit("0")
+            le.setEnabled(False)
+            le.setAlignment(Qt.AlignCenter)
+            le.setStyleSheet("font-size: 15px; font-weight: bold;")
+            setattr(self, attr, le)
+            col.addWidget(col_label)
+            col.addWidget(le)
+            stats_layout.addLayout(col)
+        stats_reset_btn = QPushButton("Reset")
+        stats_reset_btn.setFixedWidth(52)
+        stats_reset_btn.clicked.connect(lambda x: self.reset_amount_dispensed())
+        stats_layout.addWidget(stats_reset_btn)
+        stats_group.setLayout(stats_layout)
+        vlayout.addWidget(stats_group)
 
-
+        # ── Controls group ─────────────────────────────────────────────
+        ctrl_group = QGroupBox()
+        ctrl_group.setTitle("Controls")
         hlayout = QHBoxLayout()
+        hlayout.setSpacing(8)
+
         tabs = QTabWidget()
+
+        # Reward tab
         reward_tab = QWidget()
         rlayout = QVBoxLayout()
-
-        # widget to control post reward delay
-        post_delay_layout = QHBoxLayout()
-        post_delay_layout.addWidget(QLabel("Post Reward Delay (s): "))
+        rlayout.setSpacing(6)
+        post_row = QHBoxLayout()
+        post_row.addWidget(QLabel("Post-reward delay (s)"))
         self.post_delay = QLineEdit()
         self.post_delay.setValidator(QDoubleValidator())
-        self.post_delay.setText(str(self.client.get(f"modules['{self.module}'].post_delay", channel = 'run')))
+        self.post_delay.setText(str(self.client.get(f"modules['{self.module}'].post_delay", channel='run')))
+        self.post_delay.setFixedWidth(60)
         self.post_delay.editingFinished.connect(self.update_post_delay)
-        post_delay_layout.addWidget(self.post_delay)
-        rlayout.addLayout(post_delay_layout)
-
-        # widget to set reward amount and manually deliver
-        pulse_layout = QHBoxLayout()
-        amt_label = QLabel("Pulse Amount (mL)")
-        self.amt = QLineEdit()
+        post_row.addStretch()
+        post_row.addWidget(self.post_delay)
+        rlayout.addLayout(post_row)
+        pulse_row = QHBoxLayout()
+        pulse_row.addWidget(QLabel("Pulse amount (mL)"))
+        self.amt = QLineEdit("0.2")
         self.amt.setValidator(QDoubleValidator())
-        self.amt.setText("0.2")
-        pulse_layout.addWidget(amt_label)
-        pulse_layout.addWidget(self.amt)
-        rlayout.addLayout(pulse_layout)
-
-        # widget to set small reward fraction and manually deliver
-        small_pulse_layout = QHBoxLayout()
-        small_pulse_edit_label = QLabel("Small Pulse Fraction")
-        self.small_pulse_frac = QLineEdit()
-        only_frac = QDoubleValidator(0.,1., 6, notation = QDoubleValidator.StandardNotation)
-        self.small_pulse_frac.setText("0.6")
-        self.small_pulse_frac.setValidator(only_frac) # this doesn't seem to be working for some reason
-        small_pulse_layout.addWidget(small_pulse_edit_label)
-        small_pulse_layout.addWidget(self.small_pulse_frac)
-        rlayout.addLayout(small_pulse_layout)
-
+        self.amt.setFixedWidth(60)
+        pulse_row.addStretch()
+        pulse_row.addWidget(self.amt)
+        rlayout.addLayout(pulse_row)
+        only_frac = QDoubleValidator(0., 1., 6, notation=QDoubleValidator.StandardNotation)
+        small_row = QHBoxLayout()
+        small_row.addWidget(QLabel("Small pulse fraction"))
+        self.small_pulse_frac = QLineEdit("0.6")
+        self.small_pulse_frac.setValidator(only_frac)
+        self.small_pulse_frac.setFixedWidth(60)
+        small_row.addStretch()
+        small_row.addWidget(self.small_pulse_frac)
+        rlayout.addLayout(small_row)
+        rlayout.addStretch()
         reward_tab.setLayout(rlayout)
         tabs.addTab(reward_tab, "Reward")
 
+        # Tone tab
         tone_tab = QWidget()
         tlayout = QVBoxLayout()
-        # widget to control speaker tone frequency
-        tone_freq_layout = QHBoxLayout()
-        tone_freq_label = QLabel("Tone Frequency [Hz]")
-        self.tone_freq = QLineEdit()
-        self.tone_freq.setValidator(QDoubleValidator())
-        self.tone_freq.setText("800")
-        tone_freq_layout.addWidget(tone_freq_label)
-        tone_freq_layout.addWidget(self.tone_freq)
-        tlayout.addLayout(tone_freq_layout)
-
-        # widget to control speaker tone duration
-        tone_dur_layout = QHBoxLayout()
-        tone_dur_label = QLabel("Tone Duration [s]")
-        self.tone_dur = QLineEdit()
-        self.tone_dur.setValidator(QDoubleValidator())
-        self.tone_dur.setText("1")
-        tone_dur_layout.addWidget(tone_dur_label)
-        tone_dur_layout.addWidget(self.tone_dur)
-        tlayout.addLayout(tone_dur_layout)
-
-        # widget to control speaker tone volume
-        tone_vol_layout = QHBoxLayout()
-        tone_vol_label = QLabel("Tone Volume")
-        self.tone_vol = QLineEdit()
-        self.tone_vol.setValidator(only_frac)
-        self.tone_vol.setText("1")
-        tone_vol_layout.addWidget(tone_vol_label)
-        tone_vol_layout.addWidget(self.tone_vol)
-        tlayout.addLayout(tone_vol_layout)
-
+        tlayout.setSpacing(6)
+        for label_text, attr, default in [
+            ("Frequency (Hz)", "tone_freq", "800"),
+            ("Duration (s)", "tone_dur", "1"),
+            ("Volume (0–1)", "tone_vol", "1"),
+        ]:
+            row = QHBoxLayout()
+            row.addWidget(QLabel(label_text))
+            le = QLineEdit(default)
+            le.setValidator(QDoubleValidator())
+            le.setFixedWidth(60)
+            setattr(self, attr, le)
+            row.addStretch()
+            row.addWidget(le)
+            tlayout.addLayout(row)
+        tlayout.addStretch()
         tone_tab.setLayout(tlayout)
         tabs.addTab(tone_tab, "Tone")
-        hlayout.addWidget(tabs)
+        hlayout.addWidget(tabs, stretch=2)
 
-        clayout = QVBoxLayout() 
-
-        #pulse reward button
+        # Action buttons column
+        clayout = QVBoxLayout()
+        clayout.setSpacing(5)
         pulse_btn = QPushButton("Pulse")
         pulse_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         pulse_btn.clicked.connect(self._single_pulse)
-        clayout.addWidget(pulse_btn)
-
-        # small reward pulse button
-        small_pulse_btn = QPushButton("Small Pulse")
+        small_pulse_btn = QPushButton("Small\nPulse")
         small_pulse_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         small_pulse_btn.clicked.connect(self._small_pulse)
-        clayout.addWidget(small_pulse_btn)
-
-        # tone button
-        tone_btn = QPushButton("Play Tone")
+        tone_btn = QPushButton("Play\nTone")
         tone_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         tone_btn.clicked.connect(lambda x: self.play_tone())
-        clayout.addWidget(tone_btn)
-        
-        # button to toggle the led
-        self.led_btn = QPushButton("Toggle LED")
+        self.led_btn = QPushButton("LED")
         self.led_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.led_btn.setCheckable(True)
-        init_state = bool(self.client.get(f"modules['{self.module}'].LED.on", channel = 'run'))
-        self.led_btn.setChecked(init_state)
+        init_led = bool(self.client.get(f"modules['{self.module}'].LED.on", channel='run'))
+        self.led_btn.setChecked(init_led)
         self.led_btn.clicked.connect(self.toggle_led)
-        clayout.addWidget(self.led_btn)
-
-        # button to toggle the valve
-        self.valve_btn = QPushButton("Toggle Valve")
+        self.valve_btn = QPushButton("Valve")
         self.valve_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.valve_btn.setCheckable(True)
-        init_state = bool(self.client.get(f"modules['{self.module}'].valve.is_open", channel = 'run'))
-        self.valve_btn.setChecked(init_state)
+        init_valve = bool(self.client.get(f"modules['{self.module}'].valve.is_open", channel='run'))
+        self.valve_btn.setChecked(init_valve)
         self.valve_btn.clicked.connect(self.toggle_valve)
-        clayout.addWidget(self.valve_btn)
-
-        hlayout.addLayout(clayout)
-        gb = QGroupBox()
-        gb.setLayout(hlayout)
-        vlayout.addWidget(gb)
+        for btn in (pulse_btn, small_pulse_btn, tone_btn, self.led_btn, self.valve_btn):
+            clayout.addWidget(btn)
+        hlayout.addLayout(clayout, stretch=1)
+        ctrl_group.setLayout(hlayout)
+        vlayout.addWidget(ctrl_group)
         self.setLayout(vlayout)
 
     def reset_amount_dispensed(self):

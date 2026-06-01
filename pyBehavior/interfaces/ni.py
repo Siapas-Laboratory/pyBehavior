@@ -98,7 +98,7 @@ def digital_write(port, value):
 
 class NIRewardControl(RewardWidget):
     def __init__(self, port, name, parent, purge_port, flush_port, bleed_port1, bleed_port2):
-        
+
         super(NIRewardControl, self).__init__()
 
         self.port = port
@@ -108,61 +108,72 @@ class NIRewardControl(RewardWidget):
         self.lick_thresh = 3
         self.bout_thresh = .5
 
-        vlayout= QVBoxLayout()
-        valve_label = QLabel(self.name)
-        vlayout.addWidget(valve_label)
-        
-        open_btn  = QPushButton("Open")
+        self.setTitle(self.name)
+
+        vlayout = QVBoxLayout()
+        vlayout.setSpacing(6)
+
+        # Open / close row
+        valve_row = QHBoxLayout()
+        open_btn = QPushButton("Open Valve")
         open_btn.clicked.connect(self.open_valve)
-        vlayout.addWidget(open_btn)
-
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton("Close Valve")
         close_btn.clicked.connect(self.close_valve)
-        vlayout.addWidget(close_btn)
+        valve_row.addWidget(open_btn)
+        valve_row.addWidget(close_btn)
+        vlayout.addLayout(valve_row)
 
+        # Flow rate
         flow_layout = QHBoxLayout()
-        flow_label = QLabel("Flow Rate (mL/s)")
+        flow_layout.addWidget(QLabel("Flow Rate (mL/s)"))
         self.flow_rate = QLineEdit()
         self.flow_rate.setText("0.86")
-        flow_layout.addWidget(flow_label)
+        self.flow_rate.setFixedWidth(70)
+        flow_layout.addStretch()
         flow_layout.addWidget(self.flow_rate)
         vlayout.addLayout(flow_layout)
 
+        # Pulse row
         pulse_layout = QHBoxLayout()
-        amt_label = QLabel("Pulse Amount (mL)")
+        pulse_layout.addWidget(QLabel("Pulse (mL)"))
         self.amt = QLineEdit()
         self.amt.setValidator(QDoubleValidator())
         self.amt.setText("0.2")
-
+        self.amt.setFixedWidth(60)
         pulse_btn = QPushButton("Pulse")
         pulse_btn.clicked.connect(self.single_pulse)
-        pulse_layout.addWidget(amt_label)
+        pulse_layout.addStretch()
         pulse_layout.addWidget(self.amt)
         pulse_layout.addWidget(pulse_btn)
         vlayout.addLayout(pulse_layout)
 
-        small_pulse_layout = QHBoxLayout()
-        small_pulse_edit_label = QLabel("Small Pulse Fraction")
+        # Small pulse row
+        small_layout = QHBoxLayout()
+        small_layout.addWidget(QLabel("Small Pulse Fraction"))
         self.small_pulse_frac = QLineEdit()
-        only_frac = QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation)
+        only_frac = QDoubleValidator(0., 1., 6, notation=QDoubleValidator.StandardNotation)
         self.small_pulse_frac.setText("0.6")
-        self.small_pulse_frac.setValidator(only_frac) # this doesn't seem to be working for some reason
+        self.small_pulse_frac.setValidator(only_frac)
+        self.small_pulse_frac.setFixedWidth(60)
         small_pulse_btn = QPushButton("Small Pulse")
         small_pulse_btn.clicked.connect(self.small_pulse)
-        small_pulse_layout.addWidget(small_pulse_edit_label)
-        small_pulse_layout.addWidget(self.small_pulse_frac)
-        small_pulse_layout.addWidget(small_pulse_btn)
-        vlayout.addLayout(small_pulse_layout)
+        small_layout.addStretch()
+        small_layout.addWidget(self.small_pulse_frac)
+        small_layout.addWidget(small_pulse_btn)
+        vlayout.addLayout(small_layout)
 
-        pulse_mult_layout = QHBoxLayout()
-        pulse_mult_num_label =QLabel("Number of Pulses")
-        self.pulse_mult_num = QSpinBox(value = 20, minimum = 1, singleStep = 1)
-        pulse_multiple_btn = QPushButton("Pulse Many")
+        # Multi-pulse row
+        multi_layout = QHBoxLayout()
+        multi_layout.addWidget(QLabel("Pulses"))
+        self.pulse_mult_num = QSpinBox(value=20, minimum=1, singleStep=1)
+        self.pulse_mult_num.setFixedWidth(60)
+        pulse_multiple_btn = QPushButton("Pulse ×N")
         pulse_multiple_btn.clicked.connect(self.pulse_multiple)
-        pulse_mult_layout.addWidget(pulse_mult_num_label)
-        pulse_mult_layout.addWidget(self.pulse_mult_num)
-        pulse_mult_layout.addWidget(pulse_multiple_btn)
-        vlayout.addLayout(pulse_mult_layout)      
+        multi_layout.addStretch()
+        multi_layout.addWidget(self.pulse_mult_num)
+        multi_layout.addWidget(pulse_multiple_btn)
+        vlayout.addLayout(multi_layout)
+
         self.setLayout(vlayout)
 
         with nidaqmx.Task() as task:
@@ -171,7 +182,7 @@ class NIRewardControl(RewardWidget):
             task.do_channels.add_do_chan(bleed_port1)
             task.do_channels.add_do_chan(bleed_port2)
             task.do_channels.add_do_chan(self.port)
-            task.write([True, True, False, False, True], auto_start = True)
+            task.write([True, True, False, False, True], auto_start=True)
             task.wait_until_done()
     
     def single_pulse(self):
