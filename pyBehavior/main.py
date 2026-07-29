@@ -24,7 +24,7 @@ class NewSetupDialog(QDialog):
 
         # Title
         title = QLabel("CREATE NEW SETUP")
-        title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {styles.ACCENT}; letter-spacing: 1.5px;")
+        title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {styles.ACCENT}; letter-spacing: 1.5px;")
         layout.addWidget(title)
 
         sep = QFrame()
@@ -41,7 +41,7 @@ class NewSetupDialog(QDialog):
 
         # Hardware checkboxes
         hw_label = QLabel("HARDWARE")
-        hw_label.setStyleSheet(f"color: {styles.ACCENT}; font-size: 10px; letter-spacing: 1px; margin-top: 6px;")
+        hw_label.setStyleSheet(f"color: {styles.ACCENT}; font-size: 16px; letter-spacing: 1px; margin-top: 6px;")
         layout.addWidget(hw_label)
 
         self.use_ni_cards = QCheckBox("National Instruments DAQ cards")
@@ -141,7 +141,7 @@ class Settings(QMainWindow):
 
         # Header
         header_label = QLabel("PORT MAPPINGS")
-        header_label.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {styles.ACCENT}; letter-spacing: 1.5px;")
+        header_label.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {styles.ACCENT}; letter-spacing: 1.5px;")
         self.layout.addWidget(header_label)
 
         sep = QFrame()
@@ -188,7 +188,7 @@ class Settings(QMainWindow):
         col_header = QHBoxLayout()
         for text in ("Address", "Friendly Name", "DI", ""):
             lbl = QLabel(text)
-            lbl.setStyleSheet(f"color: {styles.ACCENT}; font-size: 10px; letter-spacing: 0.8px; font-weight: bold;")
+            lbl.setStyleSheet(f"color: {styles.ACCENT}; font-size: 16px; letter-spacing: 0.8px; font-weight: bold;")
             col_header.addWidget(lbl)
         self.layout.addLayout(col_header)
 
@@ -273,7 +273,7 @@ class Settings(QMainWindow):
         cur_len = self.body_layout.rowCount()
 
         port_label = QLabel(port)
-        port_label.setStyleSheet(f"font-family: 'Courier New', monospace; color: {styles.TEXT_SECONDARY}; font-size: 11px;")
+        port_label.setStyleSheet(f"font-family: 'Courier New', monospace; color: {styles.TEXT_SECONDARY}; font-size: 16px;")
         self.port_labels.append(port_label)
 
         name_input = QLineEdit()
@@ -292,7 +292,7 @@ class Settings(QMainWindow):
         del_btn.setFixedWidth(28)
         del_btn.setToolTip("Remove this mapping")
         del_btn.setStyleSheet(f"""
-            QPushButton {{ color: {styles.DANGER}; border-color: transparent; background: transparent; font-size: 14px; }}
+            QPushButton {{ color: {styles.DANGER}; border-color: transparent; background: transparent; font-size: 18px; }}
             QPushButton:hover {{ color: white; background: {styles.DANGER}; border-radius: 3px; }}
         """)
         del_btn.clicked.connect(self.del_map)
@@ -378,7 +378,7 @@ class SetupSelectDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
 
         title = QLabel("SELECT SETUP")
-        title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {styles.ACCENT}; letter-spacing: 1.5px;")
+        title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {styles.ACCENT}; letter-spacing: 1.5px;")
         layout.addWidget(title)
 
         sep = QFrame()
@@ -427,7 +427,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(brand)
 
         sub = QLabel("Behavioral Protocol Control System")
-        sub.setStyleSheet(f"color: {styles.TEXT_SECONDARY}; font-size: 11px; letter-spacing: 0.5px;")
+        sub.setStyleSheet(f"color: {styles.TEXT_SECONDARY}; font-size: 16px; letter-spacing: 0.5px;")
         sub.setAlignment(Qt.AlignCenter)
         layout.addWidget(sub)
 

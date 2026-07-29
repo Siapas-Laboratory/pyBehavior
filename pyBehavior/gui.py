@@ -129,7 +129,7 @@ class SetupGUI(QMainWindow):
         # Header label
         header = QLabel(self.loc.name.upper())
         header.setStyleSheet(
-            f"font-size: 14px; font-weight: bold; color: {styles.ACCENT}; "
+            f"font-size: 18px; font-weight: bold; color: {styles.ACCENT}; "
             f"letter-spacing: 2px; padding: 2px 0 6px 2px;"
         )
         self.layout.addWidget(header)
@@ -197,7 +197,7 @@ class SetupGUI(QMainWindow):
         self._status_bar = QStatusBar()
         self._status_bar.setStyleSheet(
             f"QStatusBar {{ background: {styles.BG_PANEL}; color: {styles.TEXT_SECONDARY}; "
-            f"font-size: 11px; border-top: 1px solid {styles.BORDER_SUBTLE}; }}"
+            f"font-size: 16px; border-top: 1px solid {styles.BORDER_SUBTLE}; }}"
         )
         self.setStatusBar(self._status_bar)
         self._status_bar.showMessage("Ready")
@@ -546,10 +546,12 @@ class LoggableLineEdit(QLineEdit):
 class Parameter(QWidget):
 
     def __init__(self, name, disp_name=None, default = None, is_num = False, validator = None, 
-                 settable = False, log_changes = True, logger_args = {}, logger_parent = None):
+                 settable = False, log_changes = True, logger_args = {}, logger_parent = None,
+                 precision: int = None):
         super().__init__()
 
         self.is_num = is_num
+        self.precision = precision  # number of decimal places to display for numeric params
         layout = QHBoxLayout()
         disp_name = name if disp_name is None else disp_name
         layout.addWidget(QLabel(disp_name))
@@ -569,9 +571,15 @@ class Parameter(QWidget):
         if validator is not None:
             self.setValidator(validator)
         if default is not None:
-            self.setText(f"{default}")
+            self.setText(self._format(default))
             if settable and log_changes:
                 self.le.log_change()
+
+    def _format(self, val):
+        """Format a value for display, honoring `precision` for numeric params."""
+        if self.is_num and self.precision is not None:
+            return f"{float(val):.{self.precision}f}"
+        return f"{val}"
 
     @property
     def val(self):
@@ -582,7 +590,7 @@ class Parameter(QWidget):
 
     @val.setter
     def val(self, val):
-        self.setText(f"{val}")
+        self.setText(self._format(val))
 
     def setValidator(self, *args, **kwargs):
         self.le.setValidator(*args, **kwargs)

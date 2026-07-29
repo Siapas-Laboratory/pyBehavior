@@ -37,7 +37,7 @@ QWidget {{
     background-color: {BG_DEEP};
     color: {TEXT_PRIMARY};
     font-family: {UI_FONT};
-    font-size: 12px;
+    font-size: 18px;
 }}
 
 QMainWindow, QDialog {{
@@ -47,7 +47,7 @@ QMainWindow, QDialog {{
 /* ── Labels ───────────────────────────────────────────────────────────── */
 QLabel {{
     color: {TEXT_SECONDARY};
-    font-size: 11px;
+    font-size: 16px;
     background: transparent;
     padding: 0 2px;
 }}
@@ -59,7 +59,7 @@ QPushButton {{
     border: 1px solid {BORDER_SUBTLE};
     border-radius: 4px;
     padding: 5px 12px;
-    font-size: 12px;
+    font-size: 18px;
     min-height: 24px;
 }}
 QPushButton:hover {{
@@ -124,7 +124,7 @@ QLineEdit {{
     border-radius: 3px;
     padding: 3px 7px;
     font-family: {MONO_FONT};
-    font-size: 12px;
+    font-size: 18px;
     selection-background-color: {ACCENT_DIM};
     selection-color: {BG_DEEP};
     min-height: 22px;
@@ -151,7 +151,7 @@ QComboBox {{
     border: 1px solid {BORDER_SUBTLE};
     border-radius: 3px;
     padding: 3px 7px;
-    font-size: 12px;
+    font-size: 18px;
     min-height: 24px;
 }}
 QComboBox:hover  {{ border-color: {ACCENT}; background-color: {BG_HOVER}; }}
@@ -202,7 +202,7 @@ QGroupBox {{
     border-radius: 6px;
     margin-top: 18px;
     padding: 8px 6px 6px 6px;
-    font-size: 11px;
+    font-size: 16px;
     font-weight: 600;
     color: {TEXT_SECONDARY};
     letter-spacing: 0.8px;
@@ -233,7 +233,7 @@ QTabBar::tab {{
     border-top-right-radius: 4px;
     padding: 5px 14px;
     margin-right: 2px;
-    font-size: 11px;
+    font-size: 16px;
     letter-spacing: 0.5px;
 }}
 QTabBar::tab:selected {{
@@ -251,7 +251,7 @@ QTabBar::tab:hover:!selected {{
 QCheckBox {{
     color: {TEXT_SECONDARY};
     spacing: 6px;
-    font-size: 12px;
+    font-size: 18px;
     background: transparent;
 }}
 QCheckBox::indicator {{
@@ -304,7 +304,7 @@ QListWidget {{
     border: 1px solid {BORDER_SUBTLE};
     border-radius: 4px;
     outline: none;
-    font-size: 12px;
+    font-size: 18px;
 }}
 QListWidget::item {{ padding: 6px 10px; border-radius: 3px; }}
 QListWidget::item:selected {{
@@ -326,7 +326,7 @@ QToolTip {{
     border: 1px solid {ACCENT};
     border-radius: 3px;
     padding: 4px 8px;
-    font-size: 11px;
+    font-size: 16px;
 }}
 """
 

@@ -419,7 +419,7 @@ class RPIRewardControl(RewardWidget):
             le = QLineEdit("0")
             le.setEnabled(False)
             le.setAlignment(Qt.AlignCenter)
-            le.setStyleSheet("font-size: 15px; font-weight: bold;")
+            le.setStyleSheet("font-size: 18px; font-weight: bold;")
             setattr(self, attr, le)
             col.addWidget(col_label)
             col.addWidget(le)
